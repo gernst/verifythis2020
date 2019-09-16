@@ -1,23 +1,26 @@
 package pgp
 
-import scala.util.Random
+import java.util.UUID
 
+sealed trait Identity
 sealed trait KeyId
 sealed trait Fingerprint
-sealed trait EMail
 
 sealed trait Key {
   def keyid: KeyId
   def fingerprint: Fingerprint
-  def emails: Set[EMail]
+  def identities: Set[Identity]
 }
 
-case class Token(number: BigInt)
+case class EMail(message: String, fingerprint: Fingerprint, token: Token)
+
+
+// Uses type 4 UUIDs with 122 bits of strong randomness.
+// Proposed by: https://github.com/wadoon/keyserver-java/
+case class Token(uuid: UUID)
 
 object Token {
-  def Bits = 64
-
   def unique: Token = {
-    Token(BigInt(Bits, Random))
+    Token(UUID.randomUUID)
   }
 }

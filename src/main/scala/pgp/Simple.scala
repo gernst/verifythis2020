@@ -6,41 +6,43 @@ package pgp
  * Note that this model is likely *wrong* and has races between adding and deleting keys
  * that make the behavior unpredictable, and possibly insecure.
  */
-class Simple(notify: (EMail, Token) => Unit) {
-  var keys: Map[EMail, Key] = Map()
-  var add: Map[Token, (EMail, Key)] = Map()
-  var del: Map[Token, (EMail, Key)] = Map()
+class Simple(notify: (Identity, EMail) => Unit) extends Spec0 {
+  var keys: Map[Identity, Key] = Map()
+  var add: Map[Token, (Identity, Key)] = Map()
+  var del: Map[Token, (Identity, Key)] = Map()
 
-  def byEmail(email: EMail): Option[Key] = {
-    keys get email
+  def byEmail(identity: Identity): Option[Key] = {
+    keys get identity
   }
 
-  def requestAdd(email: EMail, key: Key): Token = {
+  def requestAdd(identity: Identity, key: Key) {
     val token = Token.unique
-    add += (token -> (email, key))
-    notify(email, token)
-    token
+    add += (token -> (identity, key))
+    val fingerprint = key.fingerprint
+    val email = EMail("verify", fingerprint, token)
+    notify(identity, email)
   }
 
   def confirmAdd(token: Token) {
     if (add contains token) {
-      val (email, key) = add(token)
-      keys += (email -> key)
+      val (identity, key) = add(token)
+      keys += (identity -> key)
     }
   }
 
-  def requestDel(email: EMail, key: Key): Token = {
+  def requestDel(identity: Identity, key: Key) {
     val token = Token.unique
-    del += (token -> (email, key))
-    notify(email, token)
-    token
+    del += (token -> (identity, key))
+    val fingerprint = key.fingerprint
+    val email = EMail("revoke", fingerprint, token)
+    notify(identity, email)
   }
 
   def confirmDel(token: Token) {
     if (del contains token) {
-      val (email, key) = del(token)
-      if ((keys get email) == Some(key)) {
-        keys -= email
+      val (identity, key) = del(token)
+      if ((keys get identity) == Some(key)) {
+        keys -= identity
       }
     }
   }

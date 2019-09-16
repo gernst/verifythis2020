@@ -3,15 +3,20 @@ package pgp
 /**
  * Abstract model of the keyserver running at https://keys.openpgp.org/
  */
-class Server(notify: (EMail, Token) => Unit) {
+class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
   var keys: Map[Fingerprint, Key] = Map()
   var uploaded: Map[Token, Fingerprint] = Map()
-  var pending: Map[Token, (Fingerprint, EMail)] = Map()
-  var confirmed: Map[EMail, Fingerprint] = Map()
+  var pending: Map[Token, (Fingerprint, Identity)] = Map()
+  var confirmed: Map[Identity, Fingerprint] = Map()
   var managed: Map[Token, Fingerprint] = Map()
 
   /**
    * TODO:
+   * 
+   * Information flow
+   * - strip unconfirmed email addresses from keys!
+   * 
+   * Denial of service
    * - rate limit requests for verification
    * - rate limit requests for management links
    * - expire management links
@@ -26,10 +31,10 @@ class Server(notify: (EMail, Token) => Unit) {
    * - Upload tokens must be for valid keys
    *
    * - Pending validations must be for valid keys
-   * - Pending validations must be for email addresses associated for the respective key
+   * - Pending validations must be for identity addresses associated for the respective key
    *
-   * - Confirmed email addresses must be for valid keys
-   * - Confirmed email must be valid for the associated key
+   * - Confirmed identity addresses must be for valid keys
+   * - Confirmed identity must be valid for the associated key
    *
    * - Management tokens must be for valid keys
    */
@@ -42,16 +47,16 @@ class Server(notify: (EMail, Token) => Unit) {
       assert(keys contains fingerprint)
     }
 
-    for ((token, (fingerprint, email)) <- pending) {
+    for ((token, (fingerprint, identity)) <- pending) {
       assert(keys contains fingerprint)
       val key = keys(fingerprint)
-      assert(key.emails contains email)
+      assert(key.identities contains identity)
     }
 
-    for ((email, fingerprint) <- confirmed) {
+    for ((identity, fingerprint) <- confirmed) {
       assert(keys contains fingerprint)
       val key = keys(fingerprint)
-      assert(key.emails contains email)
+      assert(key.identities contains identity)
     }
 
     for ((token, fingerprint) <- managed) {
@@ -68,9 +73,9 @@ class Server(notify: (EMail, Token) => Unit) {
   }
 
   /**
-   * Loop up keys by id.
+   * Loop up keys by identity.
    *
-   * Note that the key id is not assumed to be unique.
+   * Note that the key identity is not assumed to be unique.
    */
   def byKeyId(keyid: KeyId): Iterable[Key] = {
     for ((fingerprint, key) <- keys if key.keyid == keyid)
@@ -78,12 +83,12 @@ class Server(notify: (EMail, Token) => Unit) {
   }
 
   /**
-   * Look up the (unique) key associated with an email address.
+   * Look up the (unique) key associated with an identity address.
    *
    * Note that this key should be in keys, too.
    */
-  def byEmail(email: EMail): Option[Key] = {
-    for (fingerprint <- confirmed get email)
+  def byEmail(identity: Identity): Option[Key] = {
+    for (fingerprint <- confirmed get identity)
       yield keys(fingerprint)
   }
 
@@ -107,63 +112,65 @@ class Server(notify: (EMail, Token) => Unit) {
   }
 
   /**
-   * Verify an email address by a token received via email.
+   * Request to verify a set of identity addresses, given a token returned by upload.
    *
-   * Note that we keep the mapping in uploaded to allow further verifications.
-   */
-  def verify(token: Token) {
-    if (pending contains token) {
-      val (fingerprint, email) = pending(token)
-      pending -= token
-      confirmed += (email -> fingerprint)
-    }
-  }
-
-  /**
-   * Request to verify a set of email addresses, given a token returned by upload.
-   *
-   * For each email address that can be verified with this token,
+   * For each identity address that can be verified with this token,
    * create a unique token that can later be passed to verify.
    */
-  def requestVerify(from: Token, emails: Set[EMail]) {
+  def requestVerify(from: Token, identities: Set[Identity]) {
     if (uploaded contains from) {
       val fingerprint = uploaded(from)
       val key = keys(fingerprint)
-      if (emails subsetOf key.emails) {
-        for (email <- emails) {
+      if (identities subsetOf key.identities) {
+        for (identity <- identities) {
           val token = Token.unique
-          pending += (token -> (fingerprint, email))
-          notify(email, token)
+          pending += (token -> (fingerprint, identity))
+          val email = EMail("verify", fingerprint, token)
+          notify(identity, email)
         }
       }
     }
   }
 
   /**
-   * Request a management token for a given confirmed email.
+   * Verify an identity address by a token received via identity.
    *
-   * Note that this should be rate-limited.
+   * Note that we keep the mapping in uploaded to allow further verifications.
    */
-  def requestManage(email: EMail) {
-    if (confirmed contains email) {
-      val token = Token.unique
-      val key = confirmed(email)
-      managed += (token -> key)
-      notify(email, token)
+  def verify(token: Token) {
+    if (pending contains token) {
+      val (fingerprint, identity) = pending(token)
+      pending -= token
+      confirmed += (identity -> fingerprint)
     }
   }
 
   /**
-   * Revoke confirmation of a set of emails given a management key.
+   * Request a management token for a given confirmed identity.
+   *
+   * Note that this should be rate-limited.
+   */
+  def requestManage(identity: Identity) {
+    if (confirmed contains identity) {
+      val token = Token.unique
+      val fingerprint = confirmed(identity)
+      managed += (token -> fingerprint)
+      val email = EMail("manage", fingerprint, token)
+      notify(identity, email)
+    }
+  }
+
+  /**
+   * Revoke confirmation of a set of identities given a management key.
    *
    * Only if all addresses match the respective key, they will be invalidated.
    */
-  def revoke(token: Token, emails: Set[EMail]) {
+  def revoke(token: Token, identities: Set[Identity]) {
     if (managed contains token) {
       val fingerprint = managed(token)
       val key = keys(fingerprint)
-      if (emails subsetOf key.emails) {
-        confirmed --= emails
+      if (identities subsetOf key.identities) {
+        confirmed --= identities
       }
     }
   }
