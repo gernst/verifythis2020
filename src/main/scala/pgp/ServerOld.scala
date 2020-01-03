@@ -3,19 +3,19 @@ package pgp
 /**
  * Abstract model of the keyserver running at https://keys.openpgp.org/
  */
-class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
-  private var keys: Map[Fingerprint, Key] = Map()
-  private var uploaded: Map[Token, Fingerprint] = Map()
-  private var pending: Map[Token, (Fingerprint, Identity)] = Map()
-  private var confirmed: Map[Identity, Fingerprint] = Map()
-  private var managed: Map[Token, Fingerprint] = Map()
+class ServerOld(notify: (Identity, EMail) => Unit) extends Spec1 {
+  var keys: Map[Fingerprint, Key] = Map()
+  var uploaded: Map[Token, Fingerprint] = Map()
+  var pending: Map[Token, (Fingerprint, Identity)] = Map()
+  var confirmed: Map[Identity, Fingerprint] = Map()
+  var managed: Map[Token, Fingerprint] = Map()
 
   /**
    * TODO:
-   *
+   * 
    * Information flow
    * - strip unconfirmed email addresses from keys!
-   *
+   * 
    * Denial of service
    * - rate limit requests for verification
    * - rate limit requests for management links
@@ -73,24 +73,12 @@ class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
   }
 
   /**
-   * Yields all identities that belong to a certain key and have been confirmed by email
-   */
-  private def filtered(key: Key): Key = {
-    def confirmedByFingerprint(key: Key) =
-      (for ((ident, fingerprint) <- confirmed if key.fingerprint == fingerprint)
-        yield ident
-        ).toSet
-
-    key restrictedTo confirmedByFingerprint(key)
-  }
-
-  /**
    * Loop up keys by identity.
    *
    * Note that the key identity is not assumed to be unique.
    */
-  def byKeyId(keyId: KeyId): Iterable[Key] = {
-    for ((fingerprint, key) <- keys if key.keyId == keyId)
+  def byKeyId(keyid: KeyId): Iterable[Key] = {
+    for ((fingerprint, key) <- keys if key.keyId == keyid)
       yield key
   }
 
@@ -101,10 +89,8 @@ class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
    */
   def byEmail(identity: Identity): Option[Key] = {
     for (fingerprint <- confirmed get identity)
-      yield filtered(keys(fingerprint))
+      yield keys(fingerprint)
   }
-
-
 
   /**
    * Upload a new key to the server.
@@ -131,7 +117,7 @@ class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
    * For each identity address that can be verified with this token,
    * create a unique token that can later be passed to verify.
    */
-  def requestVerify(from: Token, identities: Set[Identity]): Unit =  {
+  def requestVerify(from: Token, identities: Set[Identity]) {
     if (uploaded contains from) {
       val fingerprint = uploaded(from)
       val key = keys(fingerprint)

@@ -1,6 +1,9 @@
 .cache-main
 .classpath
 .project
+.metals
+project/
+target/
 bin/
 hagrid/
 verifythis.github.io.git/

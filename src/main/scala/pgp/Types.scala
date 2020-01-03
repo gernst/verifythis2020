@@ -2,17 +2,79 @@ package pgp
 
 import java.util.UUID
 
-sealed trait Identity
+
 sealed trait KeyId
+
 sealed trait Fingerprint
 
+
+/**
+ * Having the key as a trait might actually not be a good idea.
+ * It forces the server to relay the downsizing of currently validated identities to the key itself.
+ * This is mainly due to the fact that the server doesn't know the actual implementation of this trait at runtime
+ * and thus the server cannot construct a new key from the existing one.
+ *
+ * While this is not a big problem at the moment, it is reasonable to assume that any "downsizing" will usually
+ * only involve filtering the set of identities that are present in the key down to the ones present in the set of
+ * validated identities currently managed by the server.
+ */
 sealed trait Key {
-  def keyid: KeyId
+  def keyId: KeyId
+
   def fingerprint: Fingerprint
+
   def identities: Set[Identity]
+
+  def restrictedTo(ids: Set[Identity]): Key
+
+}
+
+case class PGPKey(keyId: KeyId,
+                  fingerprint: Fingerprint,
+                  identities: Set[Identity]
+                 ) extends Key {
+
+
+  override def restrictedTo(ids: Set[Identity]): Key = {
+    assert(ids subsetOf identities)
+    PGPKey(keyId,fingerprint,ids)
+  }
+}
+
+object Key {
+  def random(ids: Set[Identity]): Key =
+    PGPKey(
+      keyId = KeyId.random,
+      fingerprint = Fingerprint.random,
+      identities = ids
+    )
 }
 
 case class EMail(message: String, fingerprint: Fingerprint, token: Token)
+
+case class FingerprintImpl(fingerprint: String) extends Fingerprint
+
+object Fingerprint {
+  def random: Fingerprint = FingerprintImpl(UUID.randomUUID().toString)
+}
+
+case class KeyIdImpl(id: String) extends KeyId
+
+object KeyId {
+  def random: KeyId = KeyIdImpl(UUID.randomUUID().toString)
+}
+
+case class Identity(email: String)
+
+/**
+ * The PGP reference actually defines the fingerprint as subset of the keyId bytes.
+ * This is unnecessary for such an abstract model of a keyserver so both keyId and fingerprint
+ * are currently implemented as pseudo random sequences with sufficient length to ensure a "low enough" probability
+ * of collisions with other keys.
+ *
+ * NOTE: For now this simply uses the same UUIDs that are being used for token generation
+ */
+
 
 
 // Uses type 4 UUIDs with 122 bits of strong randomness.
