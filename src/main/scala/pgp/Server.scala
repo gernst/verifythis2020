@@ -1,4 +1,23 @@
 package pgp
+import scala.concurrent.Future
+
+
+object ServerActor extends Actor[ClientMessage,ServerMessage] {
+
+  implicit val ec = scala.concurrent.ExecutionContext.global
+
+  // TODO: The email should probably also be modelled as an Actor message.
+  val server = new Server({ (_,_) => })
+
+  override def run(in: Recv[ClientMessage], out: Send[ServerMessage]): Unit = Future {
+    for (i <- Stream.continually(in.recv); el <- i) {
+      el match {
+        case _ => println("Received a message")
+      }
+    }
+  }
+}
+
 
 /**
  * Abstract model of the keyserver running at https://keys.openpgp.org/
@@ -9,6 +28,7 @@ class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
   var pending: Map[Token, (Fingerprint, Identity)] = Map()
   var confirmed: Map[Identity, Fingerprint] = Map()
   var managed: Map[Token, Fingerprint] = Map()
+
 
   /**
    * TODO:

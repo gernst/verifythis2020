@@ -32,34 +32,28 @@ trait Recv[A] {
   def recv: Option[A]
 }
 
-sealed trait Actor[In,Out] {
+trait Actor[In,Out] {
   def run(in: Recv[In], out: Send[Out]): Unit
 }
 
 object Channel {
+
   def queue[A](): (Send[A], Recv[A]) = {
+
     object ch extends Send[A] with Recv[A] {
       import scala.collection.mutable
       val msgs = mutable.Queue[A]()
+
       def send(a: A) { msgs enqueue a }
       def recv = if(msgs.isEmpty) None else Some(msgs.dequeue)
     }
+
     (ch, ch)
   }
 
-  def _queue[A](): (Send[A], Recv[A]) = {
-    import scala.collection.mutable
-    val msgs = mutable.Queue[A]()
-
-    object send extends Send[A] {
-      def send(a: A) { msgs enqueue a }
-    }
-
-    object recv extends Recv[A] {
-      def recv = if(msgs.isEmpty) None else Some(msgs.dequeue)
-    }
-
-    (send, recv)
-  }
 
 }
+
+sealed trait ServerMessage
+
+sealed trait ClientMessage
