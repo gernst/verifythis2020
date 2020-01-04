@@ -1,4 +1,6 @@
 package pgp
+
+import types._
 /**
  * Simple interface of a keyserver with validation
  */
