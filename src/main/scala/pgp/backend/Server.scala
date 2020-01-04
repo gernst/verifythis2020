@@ -3,34 +3,32 @@ package pgp
 import types._
 import scala.concurrent.Future
 
-object ServerActor extends Actor[ClientMessage, ServerMessage] {
+class ServerActor(private val server: Server) extends Actor[ClientMessage, ServerMessage] {
 
   implicit val ec = scala.concurrent.ExecutionContext.global
 
-  // TODO: The email should probably also be modelled as an Actor message.
-  val server = new Server
 
   override def run(in: Recv[ClientMessage], out: Send[ServerMessage]): Unit =
     Future {
       for (i <- Stream.continually(in.recv); el <- i) {
         el match {
           case ByEmail(identity) =>
-            out send (FromEmail(server byEmail (identity)))
+            out ! (FromEmail(server byEmail (identity)))
           case ByFingerprint(fingerprint) =>
-            out send (FromFingerprint(server byFingerprint (fingerprint)))
+            out ! (FromFingerprint(server byFingerprint (fingerprint)))
           case ByKeyId(keyId) =>
-            out send (FromKeyId(server byKeyId (keyId)))
+            out ! (FromKeyId(server byKeyId (keyId)))
           case Upload(key) =>
-            out send (Uploaded(server.upload(key)))
+            out ! (Uploaded(server.upload(key)))
           case RequestVerify(from, identities) =>
             for (mail <- server.requestVerify(from, identities)) {
-              out send (Verification(mail))
+              out ! (Verification(mail))
             }
 
           case Verify(token) => server.verify(token)
           case RequestManage(identity) =>
             for (mail <- server.requestManage(identity)) {
-              out send (Verification(mail))
+              out ! (Verification(mail))
             }
           case Revoke(token, identities) =>
             server.revoke(token, identities)
@@ -49,6 +47,8 @@ class Server extends Spec1 {
   private var pending: Map[Token, (Fingerprint, Identity)] = Map()
   private var confirmed: Map[Identity, Fingerprint] = Map()
   private var managed: Map[Token, Fingerprint] = Map()
+
+  private val actor = new ServerActor(this)
 
   /**
     * TODO:

@@ -2,6 +2,8 @@ package pgp.types
 
 trait Send[A] {
     def send(a: A)
+
+    def !(a: A) = send(a)
   }
   
   trait Recv[A] {
