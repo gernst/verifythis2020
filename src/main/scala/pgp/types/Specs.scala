@@ -62,10 +62,10 @@ trait Spec1 {
 
   // methods related key upload and identify verification
   def upload(key: Key): Token
-  def requestVerify(from: Token, emails: Set[Identity])
+  def requestVerify(from: Token, emails: Set[Identity]): Option[EMail]
   def verify(token: Token)
 
   // methods to manage and remove identity associations
-  def requestManage(identity: Identity)
+  def requestManage(identity: Identity): Option[EMail]
   def revoke(token: Token, emails: Set[Identity])
 }

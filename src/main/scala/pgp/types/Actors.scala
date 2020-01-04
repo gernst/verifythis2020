@@ -32,15 +32,18 @@ trait Send[A] {
   
   sealed trait ServerMessage
 
-  final case class Manage(fingerprint: Fingerprint, token: Token) extends ServerMessage
+  final case class Manage(email: EMail) extends ServerMessage
 
-  final case class Verify(fingerprint: Fingerprint, token: Token) extends ServerMessage
+  final case class Verification(email: EMail) extends ServerMessage
 
   final case class FromFingerprint(key: Option[Key]) extends ServerMessage
 
-  final case class FromKeyId(key: Iterable[Key])
+  final case class FromKeyId(key: Iterable[Key]) extends ServerMessage
 
   final case class FromEmail(key: Option[Key]) extends ServerMessage
+
+  final case class Uploaded(token: Token) extends ServerMessage
+
   
 
 
@@ -59,6 +62,6 @@ trait Send[A] {
   
   final case class Verify(token: Token) extends ClientMessage
   
-  final case class RequestManage(identity: Identity) extends  ClientMessage
+  final case class RequestManage(identity: Identity) extends ClientMessage
 
   final case class Revoke(token: Token, identities: Set[Identity]) extends ClientMessage

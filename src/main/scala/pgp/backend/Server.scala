@@ -3,63 +3,79 @@ package pgp
 import types._
 import scala.concurrent.Future
 
-
-object ServerActor extends Actor[ClientMessage,ServerMessage] {
+object ServerActor extends Actor[ClientMessage, ServerMessage] {
 
   implicit val ec = scala.concurrent.ExecutionContext.global
 
   // TODO: The email should probably also be modelled as an Actor message.
-  val server = new Server({ (_,_) => })
+  val server = new Server
 
-  override def run(in: Recv[ClientMessage], out: Send[ServerMessage]): Unit = Future {
-    for (i <- Stream.continually(in.recv); el <- i) {
-      el match {
-        case _ => println("Received a message")
+  override def run(in: Recv[ClientMessage], out: Send[ServerMessage]): Unit =
+    Future {
+      for (i <- Stream.continually(in.recv); el <- i) {
+        el match {
+          case ByEmail(identity) =>
+            out send (FromEmail(server byEmail (identity)))
+          case ByFingerprint(fingerprint) =>
+            out send (FromFingerprint(server byFingerprint (fingerprint)))
+          case ByKeyId(keyId) =>
+            out send (FromKeyId(server byKeyId (keyId)))
+          case Upload(key) =>
+            out send (Uploaded(server.upload(key)))
+          case RequestVerify(from, identities) =>
+            for (mail <- server.requestVerify(from, identities)) {
+              out send (Verification(mail))
+            }
+
+          case Verify(token) => server.verify(token)
+          case RequestManage(identity) =>
+            for (mail <- server.requestManage(identity)) {
+              out send (Verification(mail))
+            }
+          case Revoke(token, identities) =>
+            server.revoke(token, identities)
+        }
       }
     }
-  }
 }
 
-
 /**
- * Abstract model of the keyserver running at https://keys.openpgp.org/
- */
-class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
+  * Abstract model of the keyserver running at https://keys.openpgp.org/
+  */
+class Server extends Spec1 {
   private var keys: Map[Fingerprint, Key] = Map()
   private var uploaded: Map[Token, Fingerprint] = Map()
   private var pending: Map[Token, (Fingerprint, Identity)] = Map()
   private var confirmed: Map[Identity, Fingerprint] = Map()
   private var managed: Map[Token, Fingerprint] = Map()
 
-
   /**
-   * TODO:
-   *
-   * Information flow
-   * - strip unconfirmed email addresses from keys!
-   *
-   * Denial of service
-   * - rate limit requests for verification
-   * - rate limit requests for management links
-   * - expire management links
-   */
-
+    * TODO:
+    *
+    * Information flow
+    * - strip unconfirmed email addresses from keys!
+    *
+    * Denial of service
+    * - rate limit requests for verification
+    * - rate limit requests for management links
+    * - expire management links
+    */
   /**
-   * Consistency invariants on the state space:
-   *
-   * - A key is valid if its fingerprint is registered in keys
-   *
-   * - All keys must be registered via the correct fingerprint
-   * - Upload tokens must be for valid keys
-   *
-   * - Pending validations must be for valid keys
-   * - Pending validations must be for identity addresses associated for the respective key
-   *
-   * - Confirmed identity addresses must be for valid keys
-   * - Confirmed identity must be valid for the associated key
-   *
-   * - Management tokens must be for valid keys
-   */
+    * Consistency invariants on the state space:
+    *
+    * - A key is valid if its fingerprint is registered in keys
+    *
+    * - All keys must be registered via the correct fingerprint
+    * - Upload tokens must be for valid keys
+    *
+    * - Pending validations must be for valid keys
+    * - Pending validations must be for identity addresses associated for the respective key
+    *
+    * - Confirmed identity addresses must be for valid keys
+    * - Confirmed identity must be valid for the associated key
+    *
+    * - Management tokens must be for valid keys
+    */
   def invariants() {
     for ((fingerprint, key) <- keys) {
       assert(key.fingerprint == fingerprint)
@@ -87,55 +103,52 @@ class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
   }
 
   /**
-   * Look up a key by its (unique) fingerprint.
-   *
-   */
+    * Look up a key by its (unique) fingerprint.
+    *
+    */
   def byFingerprint(fingerprint: Fingerprint): Option[Key] = {
     keys get fingerprint
   }
 
   /**
-   * Yields all identities that belong to a certain key and have been confirmed by email
-   */
+    * Yields all identities that belong to a certain key and have been confirmed by email
+    */
   private def filtered(key: Key): Key = {
     def confirmedByFingerprint(key: Key) =
       (for ((ident, fingerprint) <- confirmed if key.fingerprint == fingerprint)
-        yield ident
-        ).toSet
+        yield ident).toSet
 
     key restrictedTo confirmedByFingerprint(key)
   }
 
   /**
-   * Loop up keys by identity.
-   *
-   * Note that the key identity is not assumed to be unique.
-   */
+    * Loop up keys by identity.
+    *
+    * Note that the key identity is not assumed to be unique.
+    */
   def byKeyId(keyId: KeyId): Iterable[Key] = {
     for ((fingerprint, key) <- keys if key.keyId == keyId)
       yield key
   }
 
   /**
-   * Look up the (unique) key associated with an identity address.
-   *
-   * Note that this key should be in keys, too.
-   */
+    * Look up the (unique) key associated with an identity address.
+    *
+    * Note that this key should be in keys, too.
+    */
   def byEmail(identity: Identity): Option[Key] = {
     for (fingerprint <- confirmed get identity)
       yield filtered(keys(fingerprint))
   }
 
-
-
   /**
-   * Upload a new key to the server.
-   *
-   * The returned token must be used to requestVerify,
-   * to prevent spamming users with such requests.
-   *
-   * Note the check for fingerprint collisions.
-   */
+    * Upload a new key to the server.
+    *
+    * The returned token must be used to requestVerify,
+    * to prevent spamming users with such requests.
+    *
+    * Note the check for fingerprint collisions.
+    */
   def upload(key: Key): Token = {
     val fingerprint = key.fingerprint
     if (keys contains fingerprint)
@@ -148,12 +161,12 @@ class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
   }
 
   /**
-   * Request to verify a set of identity addresses, given a token returned by upload.
-   *
-   * For each identity address that can be verified with this token,
-   * create a unique token that can later be passed to verify.
-   */
-  def requestVerify(from: Token, identities: Set[Identity]): Unit =  {
+    * Request to verify a set of identity addresses, given a token returned by upload.
+    *
+    * For each identity address that can be verified with this token,
+    * create a unique token that can later be passed to verify.
+    */
+  def requestVerify(from: Token, identities: Set[Identity]): Option[EMail] = {
     if (uploaded contains from) {
       val fingerprint = uploaded(from)
       val key = keys(fingerprint)
@@ -162,17 +175,18 @@ class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
           val token = Token.unique
           pending += (token -> (fingerprint, identity))
           val email = EMail("verify", fingerprint, token)
-          notify(identity, email)
+          Some(email)
         }
       }
     }
+    None
   }
 
   /**
-   * Verify an identity address by a token received via identity.
-   *
-   * Note that we keep the mapping in uploaded to allow further verifications.
-   */
+    * Verify an identity address by a token received via identity.
+    *
+    * Note that we keep the mapping in uploaded to allow further verifications.
+    */
   def verify(token: Token) {
     if (pending contains token) {
       val (fingerprint, identity) = pending(token)
@@ -182,25 +196,26 @@ class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
   }
 
   /**
-   * Request a management token for a given confirmed identity.
-   *
-   * Note that this should be rate-limited.
-   */
-  def requestManage(identity: Identity) {
+    * Request a management token for a given confirmed identity.
+    *
+    * Note that this should be rate-limited.
+    */
+  def requestManage(identity: Identity): Option[EMail] = {
     if (confirmed contains identity) {
       val token = Token.unique
       val fingerprint = confirmed(identity)
       managed += (token -> fingerprint)
       val email = EMail("manage", fingerprint, token)
-      notify(identity, email)
+      Some(email)
     }
+    None
   }
 
   /**
-   * Revoke confirmation of a set of identities given a management key.
-   *
-   * Only if all addresses match the respective key, they will be invalidated.
-   */
+    * Revoke confirmation of a set of identities given a management key.
+    *
+    * Only if all addresses match the respective key, they will be invalidated.
+    */
   def revoke(token: Token, identities: Set[Identity]) {
     if (managed contains token) {
       val fingerprint = managed(token)

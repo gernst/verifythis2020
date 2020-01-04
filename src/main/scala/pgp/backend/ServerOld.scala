@@ -5,7 +5,7 @@ import types._
 /**
  * Abstract model of the keyserver running at https://keys.openpgp.org/
  */
-class ServerOld(notify: (Identity, EMail) => Unit) extends Spec1 {
+class ServerOld extends Spec1 {
   var keys: Map[Fingerprint, Key] = Map()
   var uploaded: Map[Token, Fingerprint] = Map()
   var pending: Map[Token, (Fingerprint, Identity)] = Map()
@@ -119,7 +119,7 @@ class ServerOld(notify: (Identity, EMail) => Unit) extends Spec1 {
    * For each identity address that can be verified with this token,
    * create a unique token that can later be passed to verify.
    */
-  def requestVerify(from: Token, identities: Set[Identity]) {
+  def requestVerify(from: Token, identities: Set[Identity]) = {
     if (uploaded contains from) {
       val fingerprint = uploaded(from)
       val key = keys(fingerprint)
@@ -128,10 +128,12 @@ class ServerOld(notify: (Identity, EMail) => Unit) extends Spec1 {
           val token = Token.unique
           pending += (token -> (fingerprint, identity))
           val email = EMail("verify", fingerprint, token)
-          notify(identity, email)
+          Some(email)
         }
+
       }
     }
+    None
   }
 
   /**
@@ -152,14 +154,15 @@ class ServerOld(notify: (Identity, EMail) => Unit) extends Spec1 {
    *
    * Note that this should be rate-limited.
    */
-  def requestManage(identity: Identity) {
+  def requestManage(identity: Identity) = {
     if (confirmed contains identity) {
       val token = Token.unique
       val fingerprint = confirmed(identity)
       managed += (token -> fingerprint)
       val email = EMail("manage", fingerprint, token)
-      notify(identity, email)
+      Some(email)
     }
+    None
   }
 
   /**

@@ -41,9 +41,9 @@ object Main extends App {
 
   val identities = addresses map Identity
 
-  lazy val server = new Server(validateIdent)
+  lazy val server = new Server
 
-  lazy val insecureServer = new ServerOld(validateIdentInsec)
+  lazy val insecureServer = new ServerOld
   
 
   val validateIdent: (Identity, EMail) => Unit = (identity, email) => {

@@ -2,6 +2,7 @@
 .classpath
 .project
 .metals
+.scalafmt.conf
 project/
 target/
 build.sbt
