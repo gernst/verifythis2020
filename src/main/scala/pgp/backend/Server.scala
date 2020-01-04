@@ -35,6 +35,7 @@ object ServerActor extends Actor[ClientMessage, ServerMessage] {
           case Revoke(token, identities) =>
             server.revoke(token, identities)
         }
+        server.invariants()
       }
     }
 }
