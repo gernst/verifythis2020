@@ -2,40 +2,45 @@ package pgp
 
 import types._
 import scala.concurrent.Future
+import scala.concurrent.Await
 
-class ServerActor(private val server: Server) extends Actor[ClientMessage, ServerMessage] {
+class ServerActor(private val server: Server)
+    extends Actor[ClientMessage, ServerMessage] {
 
   implicit val ec = scala.concurrent.ExecutionContext.global
 
+  override def run(
+      in: Recv[ClientMessage],
+      out: Send[ServerMessage]
+  ): Future[Unit] = Future {
+    val x = for (i <- Stream.continually(in.recv); el <- i) {
+      el match {
+        case ByEmail(identity) =>
+          out ! FromEmail(server byEmail (identity))
+        case ByFingerprint(fingerprint) =>
+          out ! FromFingerprint(server byFingerprint (fingerprint))
+        case ByKeyId(keyId) =>
+          out ! FromKeyId(server byKeyId (keyId))
+        case Upload(key) =>
+          out ! Uploaded(server.upload(key))
+        case RequestVerify(from, identities) =>
+          for (mail <- server.requestVerify(from, identities)) {
+            out ! Verification(mail)
+          }
 
-  override def run(in: Recv[ClientMessage], out: Send[ServerMessage]): Unit =
-    Future {
-      for (i <- Stream.continually(in.recv); el <- i) {
-        el match {
-          case ByEmail(identity) =>
-            out ! (FromEmail(server byEmail (identity)))
-          case ByFingerprint(fingerprint) =>
-            out ! (FromFingerprint(server byFingerprint (fingerprint)))
-          case ByKeyId(keyId) =>
-            out ! (FromKeyId(server byKeyId (keyId)))
-          case Upload(key) =>
-            out ! (Uploaded(server.upload(key)))
-          case RequestVerify(from, identities) =>
-            for (mail <- server.requestVerify(from, identities)) {
-              out ! (Verification(mail))
-            }
-
-          case Verify(token) => server.verify(token)
-          case RequestManage(identity) =>
-            for (mail <- server.requestManage(identity)) {
-              out ! (Verification(mail))
-            }
-          case Revoke(token, identities) =>
-            server.revoke(token, identities)
-        }
-        server.invariants()
+        case Verify(token) => server.verify(token)
+        case RequestManage(identity) =>
+          for (mail <- server.requestManage(identity)) {
+            out ! Manage(mail)
+          }
+        case Revoke(token, identities) =>
+          server.revoke(token, identities)
       }
+      server.invariants()
     }
+  }
+    
+  
 }
 
 /**

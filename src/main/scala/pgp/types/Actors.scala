@@ -1,4 +1,6 @@
 package pgp.types
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.Future
 
 trait Send[A] {
     def send(a: A)
@@ -11,19 +13,21 @@ trait Send[A] {
   }
   
   trait Actor[In,Out] {
-    def run(in: Recv[In], out: Send[Out]): Unit
+    def run(in: Recv[In], out: Send[Out]): scala.concurrent.Future[Unit]
   }
+
+  
   
   object Channel {
   
     def queue[A](): (Send[A], Recv[A]) = {
   
       object ch extends Send[A] with Recv[A] {
-        import scala.collection.mutable
-        val msgs = mutable.Queue[A]()
+        import  java.util.concurrent.BlockingQueue
+        val msgs = new LinkedBlockingQueue[A]
   
-        def send(a: A) { msgs enqueue a }
-        def recv = if(msgs.isEmpty) None else Some(msgs.dequeue)
+        def send(a: A) { msgs put a }
+        def recv = Some(msgs.poll())
       }
   
       (ch, ch)
