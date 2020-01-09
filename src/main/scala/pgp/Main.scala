@@ -26,11 +26,11 @@ object Main extends App {
       clients: Set[ClientActor],
       server: ServerActor
   ) = {
-    //TODO: Collect all futures and await for them collectively
+    //TODO: Collect all futures and await for them collectively. NOT FINSIHED
     val futures = channels.map {
       case (clientChannel, serverChannel) =>
         server.run(clientChannel._2, serverChannel._1)
-    }.flatMap()
+    }.flatMap(???)
     for (ch <- channels) {
       // println("Hello World!")
       val (in, out) = (ch._1._2, ch._2._1)

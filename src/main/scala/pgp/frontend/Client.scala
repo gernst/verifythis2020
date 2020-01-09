@@ -21,7 +21,10 @@ class Client(
 
   def receive(identity: Identity, email: EMail) = {}
 
-  def upload(key: Key): Unit = ???
+  def upload(key: Key): Unit = {
+    out ! Upload(key)
+    // in.recv() this doesnt work
+  }
 
   def verify(identities: Set[Identity]) = ???
 
@@ -96,7 +99,17 @@ class ClientActor(private val client: Client)
 
           }
 
-          case Uploaded(token)                            => {}
+          case Uploaded(token)                            => ??? /**
+              This is a difficult case to handle asynchronously / without state.
+              The token carries no further information about its origin.
+              
+              Possible solution (but a weak workaround): 
+              Dont handle this case in the actor and instead explicitly listen
+              for this response in the client. That way, each token can be associated 
+              with its identities / key
+              Alternatively: Implement a more soffisticated Actor system that where 
+              each message carries information about its sender  
+          **/
           case Verification(EMail(_, fingerprint, token)) => out ! Verify(token)
 
         }
