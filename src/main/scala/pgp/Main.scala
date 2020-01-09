@@ -59,6 +59,12 @@ object OldMain {
     active.step(rnd)
   }
 
+  def test() {
+    val actors: Seq[Actor[_, _]] = ???
+    step(actors, k(0, 1, 2))
+    // bzw server.step(c(0))
+  }
+
   def main() = {
     // init server
 

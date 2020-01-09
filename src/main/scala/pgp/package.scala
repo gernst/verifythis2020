@@ -14,10 +14,9 @@ package object pgp {
   case object BOTH extends LogType
   case object WARNING extends LogType
 
-  class RandomIterator extends Iterator[Int] {
-    def hasNext = true
-    def next = Random.nextInt
-  }
+  def r() = Iterator.continually(Random.nextInt)
+  def k(is: Int*) = is.iterator
+  def c(i: Int) = Iterator.continually(i)
 
   def choose[A](xs: Seq[A], rnd: Iterator[Int]): A = {
     xs(rnd.next() % xs.size)
