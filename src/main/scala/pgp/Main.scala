@@ -3,37 +3,35 @@ package pgp
 import types._
 
 object Main extends App {
-  type Channel[A] = (Send[A], Recv[A])
-
-  def setupChannels() =
-    Stream
+  def setupChannels() = {
+    Seq.fill(10) { (Channel.queue[ClientMessage], Channel.queue[ServerMessage]) }
+    // Channel.queues[ClientMessage](10) zip Channel.queues[ServerMessage](10)
+  }
+  /* Stream
       .continually(Channel.queue[ClientMessage])
       .take(10)
       .zip(Stream.continually(Channel.queue[ServerMessage]).take(10))
-      .toSet
+      .toSet */
 
   def setupBackend() = new ServerActor(new Server)
 
   def setupClients(
-      channels: Set[(Channel[ClientMessage], Channel[ServerMessage])]
-  ) =
+    channels: Seq[(Channel[ClientMessage], Channel[ServerMessage])]) =
     channels
-      .map { case (send, recv) => new Client(recv._2, send._1, Set()) }
+      .map { case (send, recv) => new Client(recv.recv, send.send, Set()) }
       .map(new ClientActor(_))
 
   def run(
-      channels: Set[(Channel[ClientMessage], Channel[ServerMessage])],
-      clients: Set[ClientActor],
-      server: ServerActor
-  ) = {
+    channels: Seq[(Channel[ClientMessage], Channel[ServerMessage])],
+    clients: Seq[ClientActor],
+    server: ServerActor) = {
     //TODO: Collect all futures and await for them collectively. NOT FINSIHED
     val futures = channels.map {
       case (clientChannel, serverChannel) =>
-        server.run(clientChannel._2, serverChannel._1)
+        server.run(clientChannel.recv, serverChannel.send)
     }.flatMap(???)
-    for (ch <- channels) {
+    for ((Channel(_, in), Channel(out, _)) <- channels) {
       // println("Hello World!")
-      val (in, out) = (ch._1._2, ch._2._1)
       server.run(in, out)
     }
     clients.foreach(_.run())
@@ -54,6 +52,13 @@ object Main extends App {
 }
 
 object OldMain {
+
+  def step(actors: Seq[Actor[_, _]], rnd: Iterator[Int]) = {
+    assert(!actors.isEmpty)
+    val active = choose(actors, rnd)
+    active.step(rnd)
+  }
+
   def main() = {
     // init server
 
@@ -87,8 +92,7 @@ object OldMain {
       "sopwith@live.com",
       "horrocks@me.com",
       "tfinniga@comcast.net",
-      "gfxguy@sbcglobal.net"
-    )
+      "gfxguy@sbcglobal.net")
 
     val identities = addresses map Identity
 
@@ -119,8 +123,7 @@ object OldMain {
 
     log(
       "Keys uploaded. Currently there should be 30 identities when querying by fingerprint/keyId",
-      BOTH
-    )
+      BOTH)
 
     def validatedByFingerprint(s: Spec1) =
       keys
@@ -135,45 +138,39 @@ object OldMain {
 
     log(
       s"Validated (Fingerprint/KeyId): ${validatedByFingerprint(server).size}",
-      SECURE
-    )
+      SECURE)
     log(
       s"Validated (Fingerprint/KeyId): ${validatedByFingerprint(insecureServer).size}",
-      INSECURE
-    )
+      INSECURE)
 
     log(
       "Currently, there should be 0 identities when querying a key by one of its associated identities",
-      BOTH
-    )
+      BOTH)
 
     log(s"Validated (Email): ${validatedByEmail(server).size}", SECURE)
     log(
       s"Validated (Email): ${validatedByEmail(insecureServer).size}",
-      INSECURE
-    )
+      INSECURE)
 
     log("Verifying exactly one identity for 5 keys.", BOTH)
     (
       tokens
-        zip (tokensInsecure)
-        take (5)
-        foreach {
-          case (sec, insec) =>
-            val identSec = sec._1.identities.take(1)
-            val identInsec = insec._1.identities.take(1)
-            server.requestVerify(sec._2, identSec)
-            insecureServer.requestVerify(insec._2, identInsec)
-        }
-    )
+      zip (tokensInsecure)
+      take (5)
+      foreach {
+        case (sec, insec) =>
+          val identSec = sec._1.identities.take(1)
+          val identInsec = insec._1.identities.take(1)
+          server.requestVerify(sec._2, identSec)
+          insecureServer.requestVerify(insec._2, identInsec)
+      })
 
     log("There should be 5 validated identities", BOTH)
 
     log(s"Validated (Email): ${validatedByEmail(server).size}", SECURE)
     log(
       s"Validated (Email): ${validatedByEmail(insecureServer).size}",
-      INSECURE
-    )
+      INSECURE)
 
   }
 }
