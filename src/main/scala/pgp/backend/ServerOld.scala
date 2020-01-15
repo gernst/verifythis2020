@@ -1,6 +1,6 @@
 package pgp
 
-import types._
+import pgp.types._
 
 /**
  * Abstract model of the keyserver running at https://keys.openpgp.org/
@@ -119,21 +119,18 @@ class ServerOld extends Spec1 {
    * For each identity address that can be verified with this token,
    * create a unique token that can later be passed to verify.
    */
-  def requestVerify(from: Token, identities: Set[Identity]) = {
+  def requestVerify(from: Token, identities: Set[Identity]): Seq[EMail] = {
     if (uploaded contains from) {
       val fingerprint = uploaded(from)
       val key = keys(fingerprint)
-      if (identities subsetOf key.identities) {
-        for (identity <- identities) {
+      if (identities subsetOf key.identities) identities
+        .map(identity => {
           val token = Token.unique
           pending += (token -> (fingerprint, identity))
           val email = EMail("verify", fingerprint, token)
-          Some(email)
-        }
-
-      }
-    }
-    None
+          email
+        }).toSeq else Nil
+    } else Nil
   }
 
   /**

@@ -1,5 +1,7 @@
 package pgp.types
 
+import pgp.ActorState
+
 import scala.collection.mutable
 
 trait Send[A] {
@@ -16,6 +18,7 @@ trait Recv[A] {
 }
 
 trait Actor[In, Out] {
+  def state: ActorState
   // def run(in: Recv[In], out: Send[Out]): scala.concurrent.Future[Unit]
   def step(rnd: Iterator[Int]): Unit
 }
@@ -31,7 +34,7 @@ object Channel {
 
       def send(a: A) { msgs enqueue a }
 
-      def canRecv: Boolean = msgs.nonEmpty
+      def canRecv: Boolean = !msgs.isEmpty
 
       def recv: A = msgs.dequeue
 
@@ -67,7 +70,7 @@ final case class ByKeyId(keyId: KeyId) extends ClientMessage
 
 final case class ByEmail(identity: Identity) extends ClientMessage
 
-final case class RequestVerify(from: Token, identities: Set[Identity]) extends ClientMessage
+final case class RequestVerify(from: Token, identity: Identity) extends ClientMessage
 
 final case class Verify(token: Token) extends ClientMessage
 

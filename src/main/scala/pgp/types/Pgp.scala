@@ -66,6 +66,40 @@ object KeyId {
 
 case class Identity(email: String)
 
+object Identity {
+  def generate(): Set[Identity] = Iterable(
+    "ilyaz@comcast.net",
+    "erynf@comcast.net",
+    "phish@verizon.net",
+    "empathy@yahoo.ca",
+    "peoplesr@optonline.net",
+    "crowl@verizon.net",
+    "ranasta@live.com",
+    "rupak@mac.com",
+    "wonderkid@yahoo.com",
+    "eminence@hotmail.com",
+    "crusader@sbcglobal.net",
+    "tezbo@att.net",
+    "mailarc@yahoo.com",
+    "majordick@me.com",
+    "jaffe@aol.com",
+    "mschilli@live.com",
+    "whimsy@yahoo.com",
+    "boser@yahoo.ca",
+    "bulletin@optonline.net",
+    "jonas@yahoo.ca",
+    "gator@hotmail.com",
+    "isotopian@outlook.com",
+    "formis@aol.com",
+    "hutton@outlook.com",
+    "fviegas@outlook.com",
+    "dkasak@msn.com",
+    "sopwith@live.com",
+    "horrocks@me.com",
+    "tfinniga@comcast.net",
+    "gfxguy@sbcglobal.net").map(Identity(_)).toSet
+}
+
 /**
  * The PGP reference actually defines the fingerprint as subset of the keyId bytes.
  * This is unnecessary for such an abstract model of a keyserver so both keyId and fingerprint

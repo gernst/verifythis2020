@@ -21,7 +21,7 @@ package object pgp {
   def c(i: Int): Iterator[Int] = Iterator.continually(i)
 
   def choose[A](xs: Seq[A], rnd: Iterator[Int]): A = {
-    xs(rnd.next() % xs.size)
+    xs(rnd.next().abs % xs.size)
   }
 
   def log(message: String, logType: LogType = SECURE): Unit = logType match {

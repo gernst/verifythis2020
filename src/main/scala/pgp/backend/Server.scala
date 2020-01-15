@@ -1,15 +1,18 @@
 package pgp.backend
 
 import pgp.types._
-import pgp.{Spec1, choose}
+import pgp.{ActorState, Running, Spec1, choose}
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
 
-class ServerActor(server: Server)
+class ServerActor(server: Spec1)
   extends Actor[ClientMessage, ServerMessage] {
 
   var connections: List[Connection[ServerMessage, ClientMessage]] = Nil
+
+  def state: ActorState = Running
+
 
   def connect(): Connection[ClientMessage, ServerMessage] = {
     val up = Channel.queue[ClientMessage]
@@ -21,6 +24,7 @@ class ServerActor(server: Server)
   implicit val ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
 
   def step(rnd: Iterator[Int]) {
+
     val active = connections filter (_.recv.canRecv)
     if (active.nonEmpty) {
       val conn = choose(active, rnd)
@@ -39,8 +43,8 @@ class ServerActor(server: Server)
         out ! FromKeyId(server byKeyId keyId)
       case Upload(key) =>
         out ! Uploaded(server.upload(key))
-      case RequestVerify(from, identities) =>
-        for (mail <- server.requestVerify(from, identities)) {
+      case RequestVerify(from, identity) =>
+        for (mail <- server.requestVerify(from, Set(identity))) {
           out ! Verification(mail)
         }
 
@@ -52,7 +56,7 @@ class ServerActor(server: Server)
       case Revoke(token, identities) =>
         server.revoke(token, identities)
     }
-    server.invariants()
+    // server.invariants()
   }
 
   def run(
@@ -190,20 +194,18 @@ class Server extends Spec1 {
    * For each identity address that can be verified with this token,
    * create a unique token that can later be passed to verify.
    */
-  def requestVerify(from: Token, identities: Set[Identity]): Option[EMail] = {
+  def requestVerify(from: Token, identities: Set[Identity]): Seq[EMail] = {
     if (uploaded contains from) {
       val fingerprint = uploaded(from)
       val key = keys(fingerprint)
-      if (identities subsetOf key.identities) {
-        for (identity <- identities) {
+      if (identities subsetOf key.identities) identities
+        .map(identity => {
           val token = Token.unique
           pending += (token -> (fingerprint, identity))
           val email = EMail("verify", fingerprint, token)
-          Some(email)
-        }
-      }
-    }
-    None
+          email
+        }).toSeq else Nil
+    } else Nil
   }
 
   /**

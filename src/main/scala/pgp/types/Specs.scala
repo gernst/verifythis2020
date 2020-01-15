@@ -1,6 +1,6 @@
 package pgp
 
-import types._
+import pgp.types._
 /**
  * Simple interface of a keyserver with validation
  */
@@ -62,10 +62,32 @@ trait Spec1 {
 
   // methods related key upload and identify verification
   def upload(key: Key): Token
-  def requestVerify(from: Token, emails: Set[Identity]): Option[EMail]
+
+  def requestVerify(from: Token, emails: Set[Identity]): Seq[EMail]
   def verify(token: Token)
 
   // methods to manage and remove identity associations
   def requestManage(identity: Identity): Option[EMail]
   def revoke(token: Token, emails: Set[Identity])
 }
+
+trait TestSpec {
+
+  def prepare(): Unit
+
+  def andThen(next: TestSpec, needsPrepare: Boolean): Boolean = {
+    if (needsPrepare) next.prepare()
+    run() & next.run()
+  }
+
+  def |>(next: TestSpec): Boolean = andThen(next, needsPrepare = false)
+
+  def run(): Boolean
+}
+
+
+sealed trait ActorState
+
+case object Running extends ActorState
+
+case object Finished extends ActorState

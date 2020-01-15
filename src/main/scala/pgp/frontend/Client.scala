@@ -1,11 +1,9 @@
 package pgp.frontend
 
-import pgp.log
 import pgp.types._
 
 import scala.collection.mutable
 import scala.collection.mutable.Map
-import scala.concurrent.Future
 
 /**
  * Abstract model of the behavior of a client of the keyserver,
@@ -64,58 +62,59 @@ class Client(
 
 }
 
-class ClientActor(private val client: Client)
-  extends Actor[ServerMessage, ClientMessage] {
-
-  implicit val ec = scala.concurrent.ExecutionContext.global
-
-  def step(rnd: Iterator[Int]) {
-
-  }
-
-  def run(
-    in: Recv[ServerMessage] = client.in,
-    out: Send[ClientMessage] = client.out): Future[Unit] =
-    Future {
-      for (el <- Stream.continually(in.recv)) {
-        el match {
-          case FromEmail(Some(key)) => log("Received!")
-          case FromEmail(None) =>
-          case FromFingerprint(Some(key)) => client.keys(key.fingerprint) = key
-          case FromFingerprint(None) =>
-          case FromKeyId(iter) =>
-            for (key <- iter) {
-              client.keys(key.fingerprint) = key
-            }
-          // try to find the identity with wich this token is
-          // associated
-          case Manage(EMail(_, fingerprint, token)) => {
-            val ids = client.keys
-              .filter { case (fp, _) => fingerprint == fp }
-              .map { case (fp, key) => key.identities }
-              .head
-
-            client.managed
-              .filter { case (id, _) => ids contains id }
-              .foreach { case (id, _) => client.managed(id) = Some(token) }
-
-          }
-
-          case Uploaded(token) => ???
-          /**
-           * This is a difficult case to handle asynchronously / without state.
-           * The token carries no further information about its origin.
-           *
-           * Possible solution (but a weak workaround):
-           * Dont handle this case in the actor and instead explicitly listen
-           * for this response in the client. That way, each token can be associated
-           * with its identities / key
-           * Alternatively: Implement a more soffisticated Actor system that where
-           * each message carries information about its sender
-           */
-          case Verification(EMail(_, fingerprint, token)) => out ! Verify(token)
-
-        }
-      }
-    }
-}
+//
+//class ClientActor(private val client: Client)
+//  extends Actor[ServerMessage, ClientMessage] {
+//
+//  implicit val ec = scala.concurrent.ExecutionContext.global
+//
+//  def step(rnd: Iterator[Int]) {
+//
+//  }
+//
+//  def run(
+//    in: Recv[ServerMessage] = client.in,
+//    out: Send[ClientMessage] = client.out): Future[Unit] =
+//    Future {
+//      for (el <- Stream.continually(in.recv)) {
+//        el match {
+//          case FromEmail(Some(key)) => log("Received!")
+//          case FromEmail(None) =>
+//          case FromFingerprint(Some(key)) => client.keys(key.fingerprint) = key
+//          case FromFingerprint(None) =>
+//          case FromKeyId(iter) =>
+//            for (key <- iter) {
+//              client.keys(key.fingerprint) = key
+//            }
+//          // try to find the identity with wich this token is
+//          // associated
+//          case Manage(EMail(_, fingerprint, token)) => {
+//            val ids = client.keys
+//              .filter { case (fp, _) => fingerprint == fp }
+//              .map { case (fp, key) => key.identities }
+//              .head
+//
+//            client.managed
+//              .filter { case (id, _) => ids contains id }
+//              .foreach { case (id, _) => client.managed(id) = Some(token) }
+//
+//          }
+//
+//          case Uploaded(token) => ???
+//          /**
+//           * This is a difficult case to handle asynchronously / without state.
+//           * The token carries no further information about its origin.
+//           *
+//           * Possible solution (but a weak workaround):
+//           * Dont handle this case in the actor and instead explicitly listen
+//           * for this response in the client. That way, each token can be associated
+//           * with its identities / key
+//           * Alternatively: Implement a more soffisticated Actor system that where
+//           * each message carries information about its sender
+//           */
+//          case Verification(EMail(_, fingerprint, token)) => out ! Verify(token)
+//
+//        }
+//      }
+//    }
+//}
