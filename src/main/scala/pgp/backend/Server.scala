@@ -1,9 +1,10 @@
-package pgp
+package pgp.backend
 
-import types._
-import scala.concurrent.Future
-import scala.concurrent.Await
-import scala.util.Random
+import pgp.types._
+import pgp.{Spec1, choose}
+
+import scala.concurrent.{ExecutionContextExecutor, Future}
+
 
 class ServerActor(server: Server)
   extends Actor[ClientMessage, ServerMessage] {
@@ -17,25 +18,25 @@ class ServerActor(server: Server)
     Connection(up.send, down.recv)
   }
 
-  implicit val ec = scala.concurrent.ExecutionContext.global
+  implicit val ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
 
   def step(rnd: Iterator[Int]) {
     val active = connections filter (_.recv.canRecv)
-    if(!active.isEmpty) {
+    if (active.nonEmpty) {
       val conn = choose(active, rnd)
       val msg = conn.recv.recv
       handle(msg, conn.send)
     }
   }
 
-  def handle(msg: ClientMessage, out: Send[ServerMessage]) = {
+  def handle(msg: ClientMessage, out: Send[ServerMessage]): Unit = {
     msg match {
       case ByEmail(identity) =>
-        out ! FromEmail(server byEmail (identity))
+        out ! FromEmail(server byEmail identity)
       case ByFingerprint(fingerprint) =>
-        out ! FromFingerprint(server byFingerprint (fingerprint))
+        out ! FromFingerprint(server byFingerprint fingerprint)
       case ByKeyId(keyId) =>
-        out ! FromKeyId(server byKeyId (keyId))
+        out ! FromKeyId(server byKeyId keyId)
       case Upload(key) =>
         out ! Uploaded(server.upload(key))
       case RequestVerify(from, identities) =>

@@ -1,8 +1,11 @@
-package pgp
+package pgp.frontend
 
-import types._
-import scala.concurrent.Future
+import pgp.log
+import pgp.types._
+
+import scala.collection.mutable
 import scala.collection.mutable.Map
+import scala.concurrent.Future
 
 /**
  * Abstract model of the behavior of a client of the keyserver,
@@ -13,10 +16,10 @@ class Client(
   val out: Send[ClientMessage],
   private val identities: Set[Identity]) {
 
-  val keys: Map[Fingerprint, Key] = Map()
-  val managed: Map[Identity, Option[Token]] = Map()
+  val keys: Map[Fingerprint, Key] = mutable.Map()
+  val managed: Map[Identity, Option[Token]] = mutable.Map()
   // when a key is validated, it is removed from this map and put into {keys}
-  val uploaded: Map[Key, Token] = Map()
+  val uploaded: Map[Key, Token] = mutable.Map()
 
   def receive(identity: Identity, email: EMail) = {}
 
@@ -27,7 +30,7 @@ class Client(
 
   def verify(identities: Set[Identity]) = ???
 
-  def getByKeyId(keyId: KeyId) = out ! ByKeyId(keyId)
+  def getByKeyId(keyId: KeyId): Unit = out ! ByKeyId(keyId)
 
   def getByEmail(identity: Identity) = out ! ByEmail(identity)
 
@@ -50,9 +53,7 @@ class Client(
       .filter {
         case (id, Some(token)) => { identities.contains(id) }
         case (id, None) => {
-          log(
-            "Tried to revoke a set of identities without a management token",
-            WARNING); false
+          false
         }
       }
       .foreach {

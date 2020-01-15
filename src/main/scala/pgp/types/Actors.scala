@@ -1,16 +1,18 @@
 package pgp.types
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.Future
+
+import scala.collection.mutable
 
 trait Send[A] {
   def send(a: A)
 
-  def !(a: A) = send(a)
+  def !(a: A): Unit = send(a)
 }
 
 trait Recv[A] {
   def canRecv: Boolean
   def recv: A
+
+  def apply(): A
 }
 
 trait Actor[In, Out] {
@@ -22,14 +24,18 @@ case class Channel[A](send: Send[A], recv: Recv[A])
 case class Connection[Out, In](send: Send[Out], recv: Recv[In])
 
 object Channel {
-  def queue[A](): Channel[A] = {
+  def queue[A]: Channel[A] = {
 
     object ch extends Send[A] with Recv[A] {
-      val msgs = scala.collection.mutable.Queue[A]()
+      val msgs: mutable.Queue[A] = scala.collection.mutable.Queue[A]()
 
       def send(a: A) { msgs enqueue a }
-      def canRecv = !msgs.isEmpty
-      def recv = msgs.dequeue
+
+      def canRecv: Boolean = msgs.nonEmpty
+
+      def recv: A = msgs.dequeue
+
+      def apply(): A = recv
     }
 
     Channel(ch, ch)

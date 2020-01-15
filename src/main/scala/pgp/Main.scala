@@ -1,6 +1,8 @@
 package pgp
 
-import types._
+import pgp.backend.{Server, ServerActor}
+import pgp.frontend.{Client, ClientActor}
+import pgp.types._
 
 object Main extends App {
   def setupChannels() = {
@@ -22,9 +24,9 @@ object Main extends App {
       .map(new ClientActor(_))
 
   def run(
-    channels: Seq[(Channel[ClientMessage], Channel[ServerMessage])],
-    clients: Seq[ClientActor],
-    server: ServerActor) = {
+           channels: Seq[(Channel[ClientMessage], Channel[ServerMessage])],
+           clients: Seq[ClientActor],
+           server: ServerActor): Unit = {
     //TODO: Collect all futures and await for them collectively. NOT FINSIHED
     val futures = channels.map {
       case (clientChannel, serverChannel) =>
@@ -37,7 +39,7 @@ object Main extends App {
     clients.foreach(_.run())
   }
 
-  def execute() = {
+  def execute(): Unit = {
     val server = setupBackend()
     val channels = setupChannels()
 
@@ -53,8 +55,8 @@ object Main extends App {
 
 object OldMain {
 
-  def step(actors: Seq[Actor[_, _]], rnd: Iterator[Int]) = {
-    assert(!actors.isEmpty)
+  def step(actors: Seq[Actor[_, _]], rnd: Iterator[Int]): Unit = {
+    assert(actors.nonEmpty)
     val active = choose(actors, rnd)
     active.step(rnd)
   }
@@ -65,7 +67,7 @@ object OldMain {
     // bzw server.step(c(0))
   }
 
-  def main() = {
+  def main(): Unit = {
     // init server
 
     val addresses = Set(
@@ -161,7 +163,7 @@ object OldMain {
     log("Verifying exactly one identity for 5 keys.", BOTH)
     (
       tokens
-      zip (tokensInsecure)
+        zip tokensInsecure
       take (5)
       foreach {
         case (sec, insec) =>
