@@ -3,6 +3,8 @@ package pgp.types
 import pgp.ActorState
 
 import scala.collection.mutable
+import pgp.Running
+import pgp.Finished
 
 trait Send[A] {
   def send(a: A)
@@ -17,10 +19,35 @@ trait Recv[A] {
   def apply(): A
 }
 
-trait Actor[In, Out] {
+trait Actor {
   def state: ActorState
   // def run(in: Recv[In], out: Send[Out]): scala.concurrent.Future[Unit]
   def step(rnd: Iterator[Int]): Unit
+}
+
+object Actor {
+  def sequence(actors: List[Actor]) = new Actor {
+    var todo = actors
+    def state = if (todo.isEmpty) Finished else Running
+    // def run(in: Recv[In], out: Send[Out]): scala.concurrent.Future[Unit]
+    def step(rnd: Iterator[Int]): Unit = {
+      val actor = todo.head
+      actor step rnd
+      if (actor.state == Finished)
+        todo = todo.tail
+    }
+  }
+  Vector
+  def choice(actors: List[Actor]) = new Actor {
+    var todo = actors
+    def state = if (todo.isEmpty) Finished else Running
+    def step(rnd: Iterator[Int]): Unit = {
+      val actor = pgp.choose(todo, rnd)
+      actor step rnd
+      if (actor.state == Finished)
+        todo = todo filter (_ != actor)
+    }
+  }
 }
 
 case class Channel[A](send: Send[A], recv: Recv[A])

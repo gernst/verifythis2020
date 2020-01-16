@@ -7,7 +7,7 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 
 
 class ServerActor(server: Spec1)
-  extends Actor[ClientMessage, ServerMessage] {
+  extends Actor {
 
   var connections: List[Connection[ServerMessage, ClientMessage]] = Nil
 

@@ -7,7 +7,7 @@ import pgp.{ActorState, Finished, Running, TestSpec}
 class ClientUploadKeyActor(client: NewClient,
                            connection: Connection[ClientMessage, ServerMessage],
                            key: Key)
-  extends Actor[ServerMessage, ClientMessage] {
+  extends Actor {
 
   override def state: ActorState = if (uploaded) Finished else Running
 
@@ -39,7 +39,7 @@ class ClientUploadKeyActor(client: NewClient,
 class ClientByMailActor(client: NewClient,
                         connection: Connection[ClientMessage, ServerMessage],
                         identity: Identity)
-  extends Actor[ServerMessage, ClientMessage] {
+  extends Actor {
 
   var key: Option[Key] = None
   var requested = false
@@ -75,7 +75,7 @@ class ClientVerifyActor(client: NewClient,
                         connection: Connection[ClientMessage, ServerMessage],
                         token: Token,
                         identity: Identity)
-  extends Actor[ServerMessage, ClientMessage] {
+  extends Actor {
 
   var requested = false
   var confirmed = false
