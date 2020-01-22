@@ -1,7 +1,7 @@
 package pgp.types
 
-import pgp.{ActorState, Finished, Running}
 import pgp.backend.ServerActor
+import pgp.{ActorState, Finished, Running}
 
 import scala.collection.mutable
 
@@ -33,8 +33,11 @@ object Actor {
     def step(rnd: Iterator[Int]): Unit = {
       val actor = todo.head
       actor step rnd
-      if (actor.state == Finished)
+      if (actor.state == Finished) {
         todo = todo.tail
+      } else {
+        todo = (todo.tail ::: List(actor))
+      }
     }
   }
 

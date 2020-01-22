@@ -24,6 +24,7 @@ class ServerActor(server: Spec1)
   implicit val ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
 
   def step(rnd: Iterator[Int]) {
+    //    println("Running Server")
 
     val active = connections filter (_.recv.canRecv)
     if (active.nonEmpty) {
@@ -219,6 +220,7 @@ class Server extends Spec1 {
       pending -= token
       confirmed += (identity -> fingerprint)
     }
+    println(confirmed.size)
   }
 
   /**

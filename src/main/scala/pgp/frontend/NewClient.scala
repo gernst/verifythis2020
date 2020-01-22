@@ -40,8 +40,7 @@ class ClientUploadKeyActor(client: NewClient,
 
 class ClientByMailActor(client: NewClient,
                         connection: Connection[ClientMessage, ServerMessage],
-                       )
-  extends Actor {
+                       ) extends Actor {
 
   var key: Option[Key] = None
   var requested = false
@@ -49,14 +48,31 @@ class ClientByMailActor(client: NewClient,
 
   override def state: ActorState = if (received) Finished else Running
 
-  private def chooseIdentity(): Option[Identity] = if (client.confirmed.isEmpty) {
-    None
-  } else {
-    val selection = Random.nextInt(client.confirmed.size)
-    val (identity, _) = client.confirmed.iterator.drop(selection).next
+  private def chooseIdentity(): Option[Identity] =
+    if (client.confirmed.isEmpty) {
+      None
+    } else {
+      val selection = Random.nextInt(client.confirmed.size)
+      val iter = client
+        .confirmed
+        .iterator
+        .filterNot { case (id, _) => client.requested.contains(id) }
 
-    Some(identity)
-  }
+
+      var opt: Option[Identity] = None
+
+      if (iter.hasNext) {
+        val (id, f) = iter.next()
+        opt = Some(id)
+        client.requested += (id -> f)
+      } else {
+        opt = None
+      }
+
+
+      opt
+
+    }
 
   def step(rnd: Iterator[Int]): Unit = {
     if (!requested) {
@@ -65,10 +81,11 @@ class ClientByMailActor(client: NewClient,
         requested = true
       }
 
-    }
-    if (connection.recv.canRecv) {
-      val msg = connection.recv()
-      handle(msg)
+    } else {
+      if (connection.recv.canRecv) {
+        val msg = connection.recv()
+        handle(msg)
+      }
     }
   }
 
@@ -76,7 +93,7 @@ class ClientByMailActor(client: NewClient,
     msg match {
       case FromEmail(optKey) =>
         for (key <- optKey) {
-          client.requested += (key.fingerprint -> key)
+          client.received += (key.fingerprint -> key)
         }
         received = true
       case _ =>
@@ -87,8 +104,7 @@ class ClientByMailActor(client: NewClient,
 
 class ClientVerifyActor(client: NewClient,
                         connection: Connection[ClientMessage, ServerMessage],
-                       )
-  extends Actor {
+                       ) extends Actor {
 
   var requested = false
   var confirmed = false
@@ -104,12 +120,9 @@ class ClientVerifyActor(client: NewClient,
       val selection = Random.nextInt(client.uploaded.size)
       val (token, key) = client.uploaded.iterator.drop(selection).next
 
-
       client.uploaded = client.uploaded.removed(token)
       Some(token, key.identities.head)
     }
-
-
 
   def step(rnd: Iterator[Int]): Unit = {
     if (!requested) {
@@ -170,10 +183,11 @@ class UploadNotValidatedKeySpec(client: NewClient, server: ServerActor)
       (for (identity <- client.identities; connection = server.connect())
         yield new ClientByMailActor(client, connection)).toList
 
+    val combined = (uploadActors ::: verifyActors ::: downloadActors) ::: List(
+      server
+    )
 
-    val combined = (uploadActors ::: verifyActors ::: downloadActors) ::: List(server)
-
-    val actorSeq: Actor = Actor.choice(combined)
+    val actorSeq: Actor = Actor.sequence(combined)
 
     val rnd = pgp.r()
 
@@ -181,11 +195,10 @@ class UploadNotValidatedKeySpec(client: NewClient, server: ServerActor)
       actorSeq.step(rnd)
     }
 
-
     println(s"Uploaded: ${client.uploaded.size}")
     println(s"Confirmed: ${client.confirmed.size}")
-    println(s"Requested ${client.requested.size}")
-    client.requested.forall { case (_, key) => key.identities.size == 1 }
+    println(s"Requested ${client.received.size}")
+    client.received.forall { case (_, key) => key.identities.size == 1 }
 
   }
 }
@@ -194,7 +207,8 @@ class NewClient(val identities: Set[Identity]) {
   var keys: Map[Fingerprint, Key] = Map()
   var uploaded: Map[Token, Key] = Map()
   var confirmed: Map[Identity, Fingerprint] = Map()
-  var requested: Map[Fingerprint, Key] = Map()
+  var received: Map[Fingerprint, Key] = Map()
+  var requested: Map[Identity, Fingerprint] = Map()
 }
 
 object Test {
