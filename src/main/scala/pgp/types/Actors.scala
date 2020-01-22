@@ -1,10 +1,9 @@
 package pgp.types
 
-import pgp.ActorState
+import pgp.{ActorState, Finished, Running}
+import pgp.backend.ServerActor
 
 import scala.collection.mutable
-import pgp.Running
-import pgp.Finished
 
 trait Send[A] {
   def send(a: A)
@@ -26,9 +25,10 @@ trait Actor {
 }
 
 object Actor {
-  def sequence(actors: List[Actor]) = new Actor {
+  def sequence(actors: List[Actor]): Actor = new Actor {
     var todo = actors
-    def state = if (todo.isEmpty) Finished else Running
+
+    def state: ActorState = if (todo.isEmpty || (todo.size == 1 && todo.head.isInstanceOf[ServerActor])) Finished else Running
     // def run(in: Recv[In], out: Send[Out]): scala.concurrent.Future[Unit]
     def step(rnd: Iterator[Int]): Unit = {
       val actor = todo.head
@@ -37,10 +37,11 @@ object Actor {
         todo = todo.tail
     }
   }
-  Vector
+
   def choice(actors: List[Actor]) = new Actor {
     var todo = actors
-    def state = if (todo.isEmpty) Finished else Running
+
+    def state: ActorState = if (todo.isEmpty || (todo.size == 1 && todo.head.isInstanceOf[ServerActor])) Finished else Running
     def step(rnd: Iterator[Int]): Unit = {
       val actor = pgp.choose(todo, rnd)
       actor step rnd

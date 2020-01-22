@@ -4,6 +4,8 @@ import pgp.backend.ServerActor
 import pgp.types._
 import pgp.{ActorState, Finished, Running, TestSpec}
 
+import scala.util.Random
+
 class ClientUploadKeyActor(client: NewClient,
                            connection: Connection[ClientMessage, ServerMessage],
                            key: Key)
@@ -38,7 +40,7 @@ class ClientUploadKeyActor(client: NewClient,
 
 class ClientByMailActor(client: NewClient,
                         connection: Connection[ClientMessage, ServerMessage],
-                        identity: Identity)
+                       )
   extends Actor {
 
   var key: Option[Key] = None
@@ -47,10 +49,22 @@ class ClientByMailActor(client: NewClient,
 
   override def state: ActorState = if (received) Finished else Running
 
+  private def chooseIdentity(): Option[Identity] = if (client.confirmed.isEmpty) {
+    None
+  } else {
+    val selection = Random.nextInt(client.confirmed.size)
+    val (identity, _) = client.confirmed.iterator.drop(selection).next
+
+    Some(identity)
+  }
+
   def step(rnd: Iterator[Int]): Unit = {
     if (!requested) {
-      connection.send ! ByEmail(identity)
-      requested = true
+      for (identity <- chooseIdentity()) {
+        connection.send ! ByEmail(identity)
+        requested = true
+      }
+
     }
     if (connection.recv.canRecv) {
       val msg = connection.recv()
@@ -73,20 +87,38 @@ class ClientByMailActor(client: NewClient,
 
 class ClientVerifyActor(client: NewClient,
                         connection: Connection[ClientMessage, ServerMessage],
-                        token: Token,
-                        identity: Identity)
+                       )
   extends Actor {
 
   var requested = false
   var confirmed = false
   var toVerify: Option[Identity] = None
+  var identity: Identity = _
 
   override def state: ActorState = if (confirmed) Finished else Running
 
+  private def chooseIdentity() =
+    if (client.uploaded.isEmpty) {
+      None
+    } else {
+      val selection = Random.nextInt(client.uploaded.size)
+      val (token, key) = client.uploaded.iterator.drop(selection).next
+
+
+      client.uploaded = client.uploaded.removed(token)
+      Some(token, key.identities.head)
+    }
+
+
+
   def step(rnd: Iterator[Int]): Unit = {
     if (!requested) {
-      connection.send ! RequestVerify(token, identity)
-      requested = true
+      for ((token, id) <- chooseIdentity()) {
+        identity = id
+        connection.send ! RequestVerify(token, id)
+        requested = true
+      }
+
     } else {
       if (connection.recv.canRecv) {
         val msg = connection.recv()
@@ -126,44 +158,33 @@ class UploadNotValidatedKeySpec(client: NewClient, server: ServerActor)
 
   def run(): Boolean = {
 
-
-    val rnd = pgp.r()
-
-    // upload all keys
-
     val uploadActors =
       (for ((_, key) <- client.keys; connection = server.connect())
-        yield new ClientUploadKeyActor(client, connection, key)).toSeq
-
-    while (!uploadActors.forall(_.state == Finished)) {
-      uploadActors.foreach(_.step(rnd))
-      server.step(rnd)
-    }
+        yield new ClientUploadKeyActor(client, connection, key)).toList
 
     val verifyActors =
-      (for ((token, key) <- client.uploaded; id = key.identities.head;
-            connection = server.connect())
-        yield new ClientVerifyActor(client, connection, token, id)).toSeq
-
-    while (!verifyActors.forall(_.state == Finished)) {
-
-      verifyActors.foreach(_.step(rnd))
-      server.step(rnd)
-    }
-
+      (for (_ <- client.keys; connection = server.connect())
+        yield new ClientVerifyActor(client, connection)).toList
 
     val downloadActors =
       (for (identity <- client.identities; connection = server.connect())
-        yield new ClientByMailActor(client, connection, identity)).toSeq
+        yield new ClientByMailActor(client, connection)).toList
 
 
-    while (!downloadActors.forall(_.state == Finished)) {
+    val combined = (uploadActors ::: verifyActors ::: downloadActors) ::: List(server)
 
-      downloadActors.foreach(_.step(rnd))
-      server.step(rnd)
+    val actorSeq: Actor = Actor.choice(combined)
+
+    val rnd = pgp.r()
+
+    while (actorSeq.state != Finished) {
+      actorSeq.step(rnd)
     }
 
 
+    println(s"Uploaded: ${client.uploaded.size}")
+    println(s"Confirmed: ${client.confirmed.size}")
+    println(s"Requested ${client.requested.size}")
     client.requested.forall { case (_, key) => key.identities.size == 1 }
 
   }
