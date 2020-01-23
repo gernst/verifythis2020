@@ -1,7 +1,7 @@
 package pgp.types
 
 import pgp.backend.ServerActor
-import pgp.{ActorState, Finished, Running}
+import pgp.{ ActorState, Finished, Running }
 
 import scala.collection.mutable
 
@@ -22,6 +22,7 @@ trait Actor {
   def state: ActorState
   // def run(in: Recv[In], out: Send[Out]): scala.concurrent.Future[Unit]
   def step(rnd: Iterator[Int]): Unit
+  def handle(from: Actor, msg: Message): Unit = ???
 }
 
 object Actor {
@@ -77,7 +78,29 @@ object Channel {
 
 }
 
-sealed trait ServerMessage
+object Network extends Actor {
+  val msgs: mutable.Queue[Packet] = scala.collection.mutable.Queue[Packet]()
+  def state: ActorState = Running
+
+  def send(from: Actor, to: Actor, msg: Message) {
+    val pkt = Packet(from, to, msg)
+    msgs enqueue pkt
+  }
+
+  // def run(in: Recv[In], out: Send[Out]): scala.concurrent.Future[Unit]
+  def step(rnd: Iterator[Int]): Unit = {
+    if (!msgs.isEmpty) {
+      val Packet(from, to, msg) = msgs.dequeue()
+      to.handle(from, msg)
+    }
+  }
+}
+
+case class Packet(from: Actor, to: Actor, msg: Message)
+
+sealed trait Message
+
+sealed trait ServerMessage extends Message
 
 final case class Manage(email: EMail) extends ServerMessage
 
@@ -91,7 +114,7 @@ final case class FromEmail(key: Option[Key]) extends ServerMessage
 
 final case class Uploaded(token: Token) extends ServerMessage
 
-sealed trait ClientMessage
+sealed trait ClientMessage extends Message
 
 final case class Upload(key: Key) extends ClientMessage
 

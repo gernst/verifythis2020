@@ -120,7 +120,7 @@ class ClientVerifyActor(client: NewClient,
       val selection = Random.nextInt(client.uploaded.size)
       val (token, key) = client.uploaded.iterator.drop(selection).next
 
-      client.uploaded = client.uploaded.removed(token)
+      client.uploaded -= token
       Some(token, key.identities.head)
     }
 
