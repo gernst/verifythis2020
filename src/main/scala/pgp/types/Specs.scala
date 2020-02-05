@@ -82,7 +82,7 @@ trait TestSpec {
 
   def |>(next: TestSpec): Boolean = andThen(next, needsPrepare = false)
 
-  def run(): Boolean
+  def run()(implicit network: Network): Boolean
 }
 
 

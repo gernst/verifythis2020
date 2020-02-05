@@ -1,9 +1,9 @@
 package pgp.backend
 
 import pgp.types._
-import pgp.{ActorState, Running, Spec1, choose}
+import pgp.{ActorState, Running, Spec1}
 
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.ExecutionContextExecutor
 
 
 class ServerActor(server: Spec1)
@@ -23,48 +23,33 @@ class ServerActor(server: Spec1)
 
   implicit val ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
 
-  def step(rnd: Iterator[Int]) {
-    //    println("Running Server")
 
-    val active = connections filter (_.recv.canRecv)
-    if (active.nonEmpty) {
-      val conn = choose(active, rnd)
-      val msg = conn.recv.recv
-      handle(msg, conn.send)
-    }
-  }
-
-  def handle(msg: ClientMessage, out: Send[ServerMessage]): Unit = {
-    msg match {
+  def handle(from: Actor, msg: Message): Unit = msg match {
       case ByEmail(identity) =>
-        out ! FromEmail(server byEmail identity)
+        send(from, FromEmail(server byEmail identity))
       case ByFingerprint(fingerprint) =>
-        out ! FromFingerprint(server byFingerprint fingerprint)
+        send(from, FromFingerprint(server byFingerprint fingerprint))
       case ByKeyId(keyId) =>
-        out ! FromKeyId(server byKeyId keyId)
+        send(from, FromKeyId(server byKeyId keyId))
       case Upload(key) =>
-        out ! Uploaded(server.upload(key))
-      case RequestVerify(from, identity) =>
-        for (mail <- server.requestVerify(from, Set(identity))) {
-          out ! Verification(mail)
+        send(from, Uploaded(server.upload(key)))
+      case RequestVerify(tok, identity) =>
+        for (mail <- server.requestVerify(tok, Set(identity))) {
+          send(from, Verification(mail))
         }
 
       case Verify(token) => server.verify(token)
       case RequestManage(identity) =>
         for (mail <- server.requestManage(identity)) {
-          out ! Manage(mail)
+          send(from, Manage(mail))
         }
       case Revoke(token, identities) =>
         server.revoke(token, identities)
+      case _ =>
     }
     // server.invariants()
-  }
 
-  def run(
-    in: Recv[ClientMessage],
-    out: Send[ServerMessage]): Future[Unit] = Future {
-???
-  }
+
 
 }
 

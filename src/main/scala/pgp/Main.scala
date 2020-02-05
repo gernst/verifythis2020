@@ -1,12 +1,12 @@
 package pgp
 
-import pgp.backend.{Server, ServerActor}
+import pgp.backend.ServerActor
 import pgp.frontend.{NewClient, UploadNotValidatedKeySpec}
 import pgp.types._
 
 object Main extends App {
 
-  val serverActor = new ServerActor(new Server)
+  val serverActor = new ServerActor(new ServerOld)
 
   val identities = Identity.generate()
 
