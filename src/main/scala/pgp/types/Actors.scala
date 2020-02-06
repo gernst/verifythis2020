@@ -62,7 +62,7 @@ object Network {
 
     def sequence(server: Actor, actors: Actor*): Unit = {
 
-      for (current <- actors.iterator) {
+      for (current <- actors) {
         current handle(server, Init)
 
         while (step(pgp.c(0))) {}
