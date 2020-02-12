@@ -11,6 +11,8 @@ class UploadActor(client: NewClient, key: Key) extends Actor {
     case Uploaded(token) => client.uploaded += (token -> key)
     case _ =>
   }
+
+  override def handle(from: Actor, msg: Body): Unit = ???
 }
 
 //class ClientUploadKeyActor(client: NewClient,
@@ -58,6 +60,8 @@ class ByMailActor(client: NewClient) extends Actor {
 
     case _ =>
   }
+
+  override def handle(from: Actor, msg: Body): Unit = ???
 }
 
 //class ClientByMailActor(client: NewClient,
@@ -137,6 +141,8 @@ class VerifyActor(client: NewClient) extends Actor {
 
     case _ =>
   }
+
+  override def handle(from: Actor, msg: Body): Unit = ???
 }
 
 

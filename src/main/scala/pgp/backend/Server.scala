@@ -49,6 +49,8 @@ class ServerActor(server: Spec1)
     }
     // server.invariants()
 
+  def handle(from: Actor, msg: Body) = {}
+
 
 
 }

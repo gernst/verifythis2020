@@ -24,7 +24,11 @@ trait Actor {
   //  def step(rnd: Iterator[Int]): Unit
   def handle(from: Actor, msg: Message)
 
+  def handle(from: Actor, msg: Body)
+
   def send(to: Actor, msg: Message)(implicit network: Network): Unit = network.send(this, to, msg)
+
+  def register(identity: Identity)(implicit network: Network): Unit = network.register(identity, this)
 }
 
 trait Network {
@@ -34,14 +38,19 @@ trait Network {
 
   def sequence(server: Actor, actors: Actor*): Unit
 
+  def register(identity: Identity, actor: Actor): Unit
+
 
 }
 
 object Network {
 
   implicit object NetworkImpl extends Network with Actor {
-    val msgs: mutable.Queue[Packet] = scala.collection.mutable.Queue[Packet]()
+    val msgs: mutable.Queue[Data] = scala.collection.mutable.Queue()
 
+    val mailHandler: mutable.Map[Identity, Actor] = scala.collection.mutable.Map()
+
+    def register(identity: Identity, actor: Actor): Unit = mailHandler += (identity -> actor)
 
     def state: ActorState = Running
 
@@ -50,11 +59,16 @@ object Network {
       msgs enqueue pkt
     }
 
+    def send(from: Actor, to: Identity, msg: Body): Unit = {
+      val mail = Mail(from, to, msg)
+      msgs enqueue mail
+    }
+
     // def run(in: Recv[In], out: Send[Out]): scala.concurrent.Future[Unit]
     def step(rnd: Iterator[Int]): Boolean = {
-      if (msgs.nonEmpty) {
-        val Packet(from, to, msg) = msgs.dequeue()
-        to.handle(from, msg)
+      if (msgs.nonEmpty) msgs.dequeue() match {
+        case Mail(from, to, msg) => mailHandler.get(to) foreach (_ handle(from, msg))
+        case Packet(from, to, msg) => to handle(from, msg)
       }
 
       msgs.nonEmpty
@@ -71,6 +85,8 @@ object Network {
 
 
     def handle(from: Actor, msg: Message): Unit = {}
+
+    def handle(from: Actor, msg: Body): Unit = {}
 
   }
 }
@@ -131,8 +147,13 @@ object Channel {
 
 }
 
+final case class Body(fingerprint: Fingerprint, token: Token, identity: Identity)
 
-case class Packet(from: Actor, to: Actor, msg: Message)
+sealed trait Data
+
+case class Mail(from: Actor, to: Identity, body: Body) extends Data
+
+case class Packet(from: Actor, to: Actor, msg: Message) extends Data
 
 sealed trait Message
 

@@ -2,6 +2,7 @@ package pgp.test
 
 import scala.util.Random
 
+
 object InformationFlow {
   def secure(public: Int, secret: Int) = public
 
@@ -20,11 +21,12 @@ object InformationFlow {
       println("result1: " + f1)
       println("result2: " + f2)
       assert(false)
+
     }
   }
 
   def main(args: Array[String]) {
-    for (i <- 0 until 1000) {
+    for (_ <- 0 until 1000) {
       print(".")
       val public = Random.nextInt(10) - 5
       val secret1 = Random.nextInt(10) - 5
@@ -32,5 +34,8 @@ object InformationFlow {
 
       test(public, secret1, secret2, insecure)
     }
+
+
   }
 }
+
