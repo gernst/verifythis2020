@@ -1,20 +1,16 @@
 package pgp
 
-import pgp.backend.ServerActor
-import pgp.frontend.{NewClient, UploadNotValidatedKeySpec}
-import pgp.types._
-
 object Main extends App {
 
-  val serverActor = new ServerActor(new ServerOld)
+  //  val serverActor = new ServerActor(new ServerOld)
+  //
+  //  val identities = Identity.mails()
+  //
+  //  val test = new UploadNotValidatedKeySpec(new NewClient(identities), serverActor)
+  //
+  //  test.prepare()
 
-  val identities = Identity.generate()
-
-  val test = new UploadNotValidatedKeySpec(new NewClient(identities), serverActor)
-
-  test.prepare()
-
-  println(test.run())
+  // println(test.run())
 
 
 }

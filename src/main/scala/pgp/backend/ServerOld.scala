@@ -119,7 +119,7 @@ class ServerOld extends Spec1 {
    * For each identity address that can be verified with this token,
    * create a unique token that can later be passed to verify.
    */
-  def requestVerify(from: Token, identities: Set[Identity]): Seq[EMail] = {
+  def requestVerify(from: Token, identities: Set[Identity]): Seq[Body] = {
     if (uploaded contains from) {
       val fingerprint = uploaded(from)
       val key = keys(fingerprint)
@@ -127,7 +127,7 @@ class ServerOld extends Spec1 {
         .map(identity => {
           val token = Token.unique
           pending += (token -> (fingerprint, identity))
-          val email = EMail("verify", fingerprint, token)
+          val email = Body(fingerprint, token, identity)
           email
         }).toSeq else Nil
     } else Nil

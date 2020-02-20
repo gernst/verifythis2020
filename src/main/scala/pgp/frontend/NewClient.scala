@@ -1,8 +1,9 @@
 package pgp.frontend
 
-import pgp.TestSpec
 import pgp.backend.ServerActor
 import pgp.types._
+
+import scala.collection.immutable.Queue
 
 class UploadActor(client: NewClient, key: Key) extends Actor {
 
@@ -12,7 +13,7 @@ class UploadActor(client: NewClient, key: Key) extends Actor {
     case _ =>
   }
 
-  override def handle(from: Actor, msg: Body): Unit = ???
+  override def handle(from: Actor, msg: Body): Unit = {}
 }
 
 //class ClientUploadKeyActor(client: NewClient,
@@ -61,142 +62,39 @@ class ByMailActor(client: NewClient) extends Actor {
     case _ =>
   }
 
-  override def handle(from: Actor, msg: Body): Unit = ???
+  override def handle(from: Actor, msg: Body): Unit = {}
 }
-
-//class ClientByMailActor(client: NewClient,
-//                        connection: Connection[ClientMessage, ServerMessage],
-//) extends Actor {
-//
-//  var key: Option[Key] = None
-//  var requested = false
-//  var received = false
-//
-//  override def state: ActorState = if (received) Finished else Running
-//
-//  def step(rnd: Iterator[Int]): Unit = {
-//    if (!requested) {
-//      for (identity <- chooseIdentity()) {
-//        connection.send ! ByEmail(identity)
-//        requested = true
-//      }
-//
-//    } else {
-//      if (connection.recv.canRecv) {
-//        val msg = connection.recv()
-//        handle(msg)
-//      }
-//    }
-//  }
-//
-//  def handle(msg: ServerMessage): Unit = {
-//    msg match {
-//      case FromEmail(optKey) =>
-//        for (key <- optKey) {
-//          client.received += (key.fingerprint -> key)
-//        }
-//        received = true
-//      case _ =>
-//    }
-//  }
-//
-//  private def chooseIdentity(): Option[Identity] =
-//    if (client.confirmed.isEmpty) {
-//      None
-//    } else {
-//      val selection = Random.nextInt(client.confirmed.size)
-//      val iter = client.confirmed.iterator
-//        .filterNot { case (id, _) => client.requested.contains(id) }
-//
-//      var opt: Option[Identity] = None
-//
-//      if (iter.hasNext) {
-//        val (id, f) = iter.next()
-//        opt = Some(id)
-//        client.requested += (id -> f)
-//      } else {
-//        opt = None
-//      }
-//
-//      opt
-//
-//    }
-//
-//}
 
 class VerifyActor(client: NewClient) extends Actor {
 
   var identity: Identity = _
 
-
   def handle(from: Actor, msg: Message): Unit = msg match {
     case Init =>
-      for ((token, id) <- client.uploaded.headOption.map { case (tok, k) => (tok, k.identities.head) }) {
+      for ((token, id) <- client.uploaded.headOption.map {
+        case (tok, k) => (tok, k.identities.head)
+      }) {
+        register(id)
         send(from, RequestVerify(token, id))
         identity = id
       }
-    case Verification(email) =>
-      send(from, Verify(email.token))
-      client.confirmed += (identity -> email.fingerprint)
-
     case _ =>
   }
 
-  override def handle(from: Actor, msg: Body): Unit = ???
+  override def handle(from: Actor, msg: Body): Unit = {
+    val Body(f, token, identity) = msg
+    send(from, Verify(token))
+    client.confirmed += (identity -> f)
+  }
 }
 
+class AttackActor extends Attacker {
 
-//class ClientVerifyActor(client: NewClient,
-//                        connection: Connection[ClientMessage, ServerMessage],
-//) extends Actor {
-//
-//  var requested = false
-//  var confirmed = false
-//  var toVerify: Option[Identity] = None
-//  var identity: Identity = _
-//
-//  override def state: ActorState = if (confirmed) Finished else Running
-//
-//  def handle(msg: ServerMessage, out: Send[ClientMessage]): Unit = {
-//    msg match {
-//      case Verification(email) =>
-//        out ! Verify(email.token)
-//        confirmed = true
-//        client.confirmed += (identity -> email.fingerprint)
-//      case _ =>
-//    }
-//  }
-//
-//  def step(rnd: Iterator[Int]): Unit = {
-//    if (!requested) {
-//      for ((token, id) <- chooseIdentity()) {
-//        identity = id
-//        connection.send ! RequestVerify(token, id)
-//        requested = true
-//      }
-//
-//    } else {
-//      if (connection.recv.canRecv) {
-//        val msg = connection.recv()
-//        handle(msg, connection.send)
-//      }
-//    }
-//  }
-//
-//  private def chooseIdentity() =
-//    if (client.uploaded.isEmpty) {
-//      None
-//    } else {
-//      val selection = Random.nextInt(client.uploaded.size)
-//      val (token, key) = client.uploaded.iterator.drop(selection).next
-//
-//      client.uploaded -= token
-//      Some(token, key.identities.head)
-//    }
-//
-//
-//
-//}
+  def inspect(state: Queue[Data]): Unit = for (msg <- state) {
+    println(msg)
+  }
+
+}
 
 class UploadNotValidatedKeySpec(client: NewClient, server: ServerActor)
   extends TestSpec {
@@ -217,40 +115,13 @@ class UploadNotValidatedKeySpec(client: NewClient, server: ServerActor)
 
   def run()(implicit network: Network): Boolean = {
 
-    //    val uploadActors =
-    //      (for ((_, key) <- client.keys; connection = server.connect())
-    //        yield new ClientUploadKeyActor(client, connection, key)).toList
-    //
-    //    val verifyActors =
-    //      (for (_ <- client.keys; connection = server.connect())
-    //        yield new ClientVerifyActor(client, connection)).toList
-    //
-    //    val downloadActors =
-    //      (for (identity <- client.identities; connection = server.connect())
-    //        yield new ClientByMailActor(client, connection)).toList
-    //
-    //    val combined = (uploadActors ::: verifyActors ::: downloadActors) ::: List(
-    //      server
-    //    )
-    //
-    //    val actorSeq: Actor = Actor.sequence(combined)
-    //
-    //    val rnd = pgp.r()
-    //
-    //    while (actorSeq.state != Finished) {
-    //      actorSeq.step(rnd)
-    //    }
-
-
     val seq = pgp.c(0)
-    val (fingerprint, key) = client.keys.head
+    val (_, key) = client.keys.head
     val uploadActor = new UploadActor(client, key)
 
     val verifyActor = new VerifyActor(client)
 
     val downloadActor = new ByMailActor(client)
-
-
 
     //    uploadActor handle (server, Init)
     //
@@ -261,8 +132,6 @@ class UploadNotValidatedKeySpec(client: NewClient, server: ServerActor)
     network.sequence(server, uploadActor, verifyActor, downloadActor)
 
     // while (network.step(seq)) {}
-
-
 
     println(s"Uploaded: ${client.uploaded.size}")
     println(s"Confirmed: ${client.confirmed.size}")
@@ -278,6 +147,15 @@ class NewClient(val identities: Set[Identity]) {
   var confirmed: Map[Identity, Fingerprint] = Map()
   var received: Map[Fingerprint, Key] = Map()
   var requested: Map[Identity, Fingerprint] = Map()
+}
+
+object NewClient {
+  def apply(identities: Set[Identity], keys: Set[Key]): NewClient = {
+    val client = new NewClient(identities)
+    client.keys = keys.map(k => (k.fingerprint, k)).toMap
+
+    client
+  }
 }
 
 object Test {

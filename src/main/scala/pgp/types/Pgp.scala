@@ -67,7 +67,7 @@ object KeyId {
 case class Identity(email: String)
 
 object Identity {
-  def generate(): Set[Identity] = Iterable(
+  def mails(): Iterable[String] = Iterable(
     "ilyaz@comcast.net",
     "erynf@comcast.net",
     "phish@verizon.net",
@@ -97,7 +97,7 @@ object Identity {
     "sopwith@live.com",
     "horrocks@me.com",
     "tfinniga@comcast.net",
-    "gfxguy@sbcglobal.net").map(Identity(_)).toSet
+    "gfxguy@sbcglobal.net")
 }
 
 /**

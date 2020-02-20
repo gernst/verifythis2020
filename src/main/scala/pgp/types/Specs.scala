@@ -1,6 +1,5 @@
-package pgp
+package pgp.types
 
-import pgp.types._
 /**
  * Simple interface of a keyserver with validation
  */
@@ -36,7 +35,7 @@ object Spec0 {
       backend.requestManage(identity)
     }
 
-    def confirmDel(token: Token) = {
+    def confirmDel(token: Token): Unit = {
       /* Note: Can't implement this without additional information here.
        * 
        * The problem is that Spec1 gives management tokens
@@ -63,7 +62,7 @@ trait Spec1 {
   // methods related key upload and identify verification
   def upload(key: Key): Token
 
-  def requestVerify(from: Token, emails: Set[Identity]): Seq[EMail]
+  def requestVerify(from: Token, emails: Set[Identity]): Seq[Body]
   def verify(token: Token)
 
   // methods to manage and remove identity associations

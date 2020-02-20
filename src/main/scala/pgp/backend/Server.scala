@@ -1,7 +1,6 @@
 package pgp.backend
 
 import pgp.types._
-import pgp.{ActorState, Running, Spec1}
 
 import scala.concurrent.ExecutionContextExecutor
 
@@ -34,8 +33,8 @@ class ServerActor(server: Spec1)
       case Upload(key) =>
         send(from, Uploaded(server.upload(key)))
       case RequestVerify(tok, identity) =>
-        for (mail <- server.requestVerify(tok, Set(identity))) {
-          send(from, Verification(mail))
+        for (Body(f, t, identity) <- server.requestVerify(tok, Set(identity))) {
+          send(identity, Body(f, t, identity))
         }
 
       case Verify(token) => server.verify(token)
@@ -49,7 +48,7 @@ class ServerActor(server: Spec1)
     }
     // server.invariants()
 
-  def handle(from: Actor, msg: Body) = {}
+  def handle(from: Actor, msg: Body): Unit = {}
 
 
 
@@ -182,7 +181,7 @@ class Server extends Spec1 {
    * For each identity address that can be verified with this token,
    * create a unique token that can later be passed to verify.
    */
-  def requestVerify(from: Token, identities: Set[Identity]): Seq[EMail] = {
+  def requestVerify(from: Token, identities: Set[Identity]): Seq[Body] = {
     if (uploaded contains from) {
       val fingerprint = uploaded(from)
       val key = keys(fingerprint)
@@ -190,7 +189,7 @@ class Server extends Spec1 {
         .map(identity => {
           val token = Token.unique
           pending += (token -> (fingerprint, identity))
-          val email = EMail("verify", fingerprint, token)
+          val email = Body(fingerprint, token, identity)
           email
         }).toSeq else Nil
     } else Nil
@@ -207,7 +206,7 @@ class Server extends Spec1 {
       pending -= token
       confirmed += (identity -> fingerprint)
     }
-    println(confirmed.size)
+    // println(confirmed.size)
   }
 
   /**
