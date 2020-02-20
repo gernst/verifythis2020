@@ -1,4 +1,5 @@
 package pgp
+
 /**
  * Simple interface of a keyserver with validation
  */
@@ -34,7 +35,7 @@ object Spec0 {
       backend.requestManage(identity)
     }
 
-    def confirmDel(token: Token) = {
+    def confirmDel(token: Token): Unit = {
       /* Note: Can't implement this without additional information here.
        * 
        * The problem is that Spec1 gives management tokens
@@ -60,10 +61,32 @@ trait Spec1 {
 
   // methods related key upload and identify verification
   def upload(key: Key): Token
-  def requestVerify(from: Token, emails: Set[Identity])
+
+  def requestVerify(from: Token, emails: Set[Identity]): Seq[Body]
   def verify(token: Token)
 
   // methods to manage and remove identity associations
-  def requestManage(identity: Identity)
+  def requestManage(identity: Identity): Option[EMail]
   def revoke(token: Token, emails: Set[Identity])
 }
+
+trait TestSpec {
+
+  def prepare(): Unit
+
+  def andThen(next: TestSpec, needsPrepare: Boolean): Boolean = {
+    if (needsPrepare) next.prepare()
+    run() & next.run()
+  }
+
+  def |>(next: TestSpec): Boolean = andThen(next, needsPrepare = false)
+
+  def run(): Boolean
+}
+
+
+sealed trait ActorState
+
+case object Running extends ActorState
+
+case object Finished extends ActorState

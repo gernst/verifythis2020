@@ -2,6 +2,33 @@ package pgp
 
 import java.util.UUID
 
+case class Body(fingerprint: Fingerprint, token: Token, identity: Identity)
+
+sealed trait Data
+case class Mail(from: Actor, to: Identity, body: Body) extends Data
+case class Packet(from: Actor, to: Actor, msg: Message) extends Data
+
+sealed trait Message
+
+object Init extends Message
+
+sealed trait ServerMessage extends Message
+case class Manage(email: EMail) extends ServerMessage
+case class Verification(email: EMail) extends ServerMessage
+case class FromFingerprint(key: Option[Key]) extends ServerMessage
+case class FromKeyId(key: Iterable[Key]) extends ServerMessage
+case class FromEmail(key: Option[Key]) extends ServerMessage
+case class Uploaded(token: Token) extends ServerMessage
+
+sealed trait ClientMessage extends Message
+case class Upload(key: Key) extends ClientMessage
+case class ByFingerprint(fingerprint: Fingerprint) extends ClientMessage
+case class ByKeyId(keyId: KeyId) extends ClientMessage
+case class ByEmail(identity: Identity) extends ClientMessage
+case class RequestVerify(from: Token, identity: Identity) extends ClientMessage
+case class Verify(token: Token) extends ClientMessage
+case class RequestManage(identity: Identity) extends ClientMessage
+case class Revoke(token: Token, identities: Set[Identity]) extends ClientMessage
 
 sealed trait KeyId
 
@@ -65,6 +92,40 @@ object KeyId {
 }
 
 case class Identity(email: String)
+
+object Identity {
+  def mails(): Iterable[String] = Iterable(
+    "ilyaz@comcast.net",
+    "erynf@comcast.net",
+    "phish@verizon.net",
+    "empathy@yahoo.ca",
+    "peoplesr@optonline.net",
+    "crowl@verizon.net",
+    "ranasta@live.com",
+    "rupak@mac.com",
+    "wonderkid@yahoo.com",
+    "eminence@hotmail.com",
+    "crusader@sbcglobal.net",
+    "tezbo@att.net",
+    "mailarc@yahoo.com",
+    "majordick@me.com",
+    "jaffe@aol.com",
+    "mschilli@live.com",
+    "whimsy@yahoo.com",
+    "boser@yahoo.ca",
+    "bulletin@optonline.net",
+    "jonas@yahoo.ca",
+    "gator@hotmail.com",
+    "isotopian@outlook.com",
+    "formis@aol.com",
+    "hutton@outlook.com",
+    "fviegas@outlook.com",
+    "dkasak@msn.com",
+    "sopwith@live.com",
+    "horrocks@me.com",
+    "tfinniga@comcast.net",
+    "gfxguy@sbcglobal.net")
+}
 
 /**
  * The PGP reference actually defines the fingerprint as subset of the keyId bytes.

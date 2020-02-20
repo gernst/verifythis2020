@@ -1,9 +1,13 @@
 package pgp
 
+import scala.concurrent.ExecutionContextExecutor
+
+
+
 /**
  * Abstract model of the keyserver running at https://keys.openpgp.org/
  */
-class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
+class Server extends Spec1 {
   private var keys: Map[Fingerprint, Key] = Map()
   private var uploaded: Map[Token, Fingerprint] = Map()
   private var pending: Map[Token, (Fingerprint, Identity)] = Map()
@@ -21,7 +25,6 @@ class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
    * - rate limit requests for management links
    * - expire management links
    */
-
   /**
    * Consistency invariants on the state space:
    *
@@ -78,8 +81,7 @@ class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
   private def filtered(key: Key): Key = {
     def confirmedByFingerprint(key: Key) =
       (for ((ident, fingerprint) <- confirmed if key.fingerprint == fingerprint)
-        yield ident
-        ).toSet
+        yield ident).toSet
 
     key restrictedTo confirmedByFingerprint(key)
   }
@@ -103,8 +105,6 @@ class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
     for (fingerprint <- confirmed get identity)
       yield filtered(keys(fingerprint))
   }
-
-
 
   /**
    * Upload a new key to the server.
@@ -131,19 +131,18 @@ class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
    * For each identity address that can be verified with this token,
    * create a unique token that can later be passed to verify.
    */
-  def requestVerify(from: Token, identities: Set[Identity]): Unit =  {
+  def requestVerify(from: Token, identities: Set[Identity]): Seq[Body] = {
     if (uploaded contains from) {
       val fingerprint = uploaded(from)
       val key = keys(fingerprint)
-      if (identities subsetOf key.identities) {
-        for (identity <- identities) {
+      if (identities subsetOf key.identities) identities
+        .map(identity => {
           val token = Token.unique
           pending += (token -> (fingerprint, identity))
-          val email = EMail("verify", fingerprint, token)
-          notify(identity, email)
-        }
-      }
-    }
+          val email = Body(fingerprint, token, identity)
+          email
+        }).toSeq else Nil
+    } else Nil
   }
 
   /**
@@ -157,6 +156,7 @@ class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
       pending -= token
       confirmed += (identity -> fingerprint)
     }
+    // println(confirmed.size)
   }
 
   /**
@@ -164,14 +164,15 @@ class Server(notify: (Identity, EMail) => Unit) extends Spec1 {
    *
    * Note that this should be rate-limited.
    */
-  def requestManage(identity: Identity) {
+  def requestManage(identity: Identity): Option[EMail] = {
     if (confirmed contains identity) {
       val token = Token.unique
       val fingerprint = confirmed(identity)
       managed += (token -> fingerprint)
       val email = EMail("manage", fingerprint, token)
-      notify(identity, email)
+      Some(email)
     }
+    None
   }
 
   /**

@@ -3,7 +3,7 @@ package pgp
 /**
  * Abstract model of the keyserver running at https://keys.openpgp.org/
  */
-class ServerOld(notify: (Identity, EMail) => Unit) extends Spec1 {
+class ServerOld extends Spec1 {
   var keys: Map[Fingerprint, Key] = Map()
   var uploaded: Map[Token, Fingerprint] = Map()
   var pending: Map[Token, (Fingerprint, Identity)] = Map()
@@ -12,10 +12,10 @@ class ServerOld(notify: (Identity, EMail) => Unit) extends Spec1 {
 
   /**
    * TODO:
-   * 
+   *
    * Information flow
    * - strip unconfirmed email addresses from keys!
-   * 
+   *
    * Denial of service
    * - rate limit requests for verification
    * - rate limit requests for management links
@@ -117,19 +117,19 @@ class ServerOld(notify: (Identity, EMail) => Unit) extends Spec1 {
    * For each identity address that can be verified with this token,
    * create a unique token that can later be passed to verify.
    */
-  def requestVerify(from: Token, identities: Set[Identity]) {
+  def requestVerify(from: Token, identities: Set[Identity]): Seq[Body] = {
     if (uploaded contains from) {
       val fingerprint = uploaded(from)
       val key = keys(fingerprint)
-      if (identities subsetOf key.identities) {
-        for (identity <- identities) {
+      if (identities subsetOf key.identities) identities
+        .map(identity => {
           val token = Token.unique
           pending += (token -> (fingerprint, identity))
-          val email = EMail("verify", fingerprint, token)
-          notify(identity, email)
-        }
-      }
-    }
+          val email = Body(fingerprint, token, identity)
+          email
+        }).toSeq
+      else Nil
+    } else Nil
   }
 
   /**
@@ -150,14 +150,15 @@ class ServerOld(notify: (Identity, EMail) => Unit) extends Spec1 {
    *
    * Note that this should be rate-limited.
    */
-  def requestManage(identity: Identity) {
+  def requestManage(identity: Identity) = {
     if (confirmed contains identity) {
       val token = Token.unique
       val fingerprint = confirmed(identity)
       managed += (token -> fingerprint)
       val email = EMail("manage", fingerprint, token)
-      notify(identity, email)
+      Some(email)
     }
+    None
   }
 
   /**
