@@ -3,7 +3,7 @@ package pgp
 import scala.collection.immutable.Queue
 import scala.collection.mutable
 
-class ServerActor(server: Spec1) extends Actor {
+class ServerActor(server: Spec1) extends PassiveActor {
   def handle(from: Actor, msg: Message): Unit = msg match {
     case ByEmail(identity) =>
       send(from, FromEmail(server byEmail identity))
@@ -32,50 +32,59 @@ class ServerActor(server: Spec1) extends Actor {
   def handle(from: Actor, msg: Body): Unit = {}
 }
 
-class UploadActor(client: Client, key: Key) extends Actor {
+class UploadActor(client: Client, key: Key, server: ServerActor) extends Actor {
+  var canAct = true
 
-  def handle(from: Actor, msg: Message): Unit = msg match {
-    case Init => send(from, Upload(key))
-    case Uploaded(token) => client.uploaded += (token -> key)
-    case _ =>
+  def act() = {
+    send(server, Upload(key))
+    canAct = false
   }
 
-  override def handle(from: Actor, msg: Body): Unit = {}
+  def handle(from: Actor, msg: Message): Unit = msg match {
+    case Uploaded(token) => client.uploaded += (token -> key)
+  }
+
+  def handle(from: Actor, msg: Body): Unit = {}
 }
 
-class ByMailActor(client: Client) extends Actor {
+class ByMailActor(client: Client, id: Identity, server: ServerActor) extends Actor {
+  def canAct = {
+    client.confirmed contains id
+  }
+
+  def act() = {
+    send(server, ByEmail(id))
+  }
 
   def handle(from: Actor, msg: Message): Unit = msg match {
     case Init =>
-      val id = client.confirmed.head._1
-      send(from, ByEmail(id))
     case FromEmail(optKey) =>
       for (key <- optKey) {
         client.received += (key.fingerprint -> key)
       }
-
-    case _ =>
   }
 
-  override def handle(from: Actor, msg: Body): Unit = {}
+  def handle(from: Actor, msg: Body): Unit = {}
 }
 
-class VerifyActor(client: Client) extends Actor {
+class VerifyActor(client: Client, id: Identity, server: ServerActor) extends Actor {
+  register(id)
 
-  var identity: Identity = _
+  def canAct = {
+    client.uploaded exists {
+      case (_, key) => key.identities contains id
+    }
+  }
 
-  def handle(from: Actor, msg: Message): Unit = msg match {
-    case Init =>
-      for (
-        (token, id) <- client.uploaded.headOption.map {
-          case (tok, k) => (tok, k.identities.head)
-        }
-      ) {
-        register(id)
-        send(from, RequestVerify(token, id))
-        identity = id
-      }
-    case _ =>
+  def act() {
+    val Some((token, key)) = client.uploaded find {
+      case (_, key) => key.identities contains id
+    }
+
+    send(server, RequestVerify(token, id))
+  }
+
+  def handle(from: Actor, msg: Message): Unit = {
   }
 
   override def handle(from: Actor, msg: Body): Unit = {
@@ -99,33 +108,6 @@ class UploadNotValidatedKeySpec(client: Client, server: ServerActor)
     val result = run()
 
     result & next.run()
-
-  }
-
-  def run(): Boolean = {
-
-    val seq = pgp.c(0)
-    val (_, key) = client.keys.head
-    val uploadActor = new UploadActor(client, key)
-
-    val verifyActor = new VerifyActor(client)
-
-    val downloadActor = new ByMailActor(client)
-
-    //    uploadActor handle (server, Init)
-    //
-    //    verifyActor handle (server, Init)
-    //
-    //    downloadActor handle (server, Init)
-
-    Network.sequence(server, uploadActor, verifyActor, downloadActor)
-
-    // while (network.step(seq)) {}
-
-    println(s"Uploaded: ${client.uploaded.size}")
-    println(s"Confirmed: ${client.confirmed.size}")
-    println(s"Requested ${client.received.size}")
-    client.received.forall { case (_, key) => key.identities.size == 1 }
 
   }
 }

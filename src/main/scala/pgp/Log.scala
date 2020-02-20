@@ -1,4 +1,0 @@
-package pgp
-
-object Log {
-}

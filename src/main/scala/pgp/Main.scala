@@ -13,6 +13,33 @@ object Main extends App {
   // println(test.run())
 
 
+  /* def run(): Boolean = {
+
+    val seq = pgp.c(0)
+    val (_, key) = client.keys.head
+    val uploadActor = new UploadActor(client, key)
+
+    val verifyActor = new VerifyActor(client)
+
+    val downloadActor = new ByMailActor(client)
+
+    //    uploadActor handle (server, Init)
+    //
+    //    verifyActor handle (server, Init)
+    //
+    //    downloadActor handle (server, Init)
+
+    Execution.sequence(server, uploadActor, verifyActor, downloadActor)
+
+    // while (network.step(seq)) {}
+
+    println(s"Uploaded: ${client.uploaded.size}")
+    println(s"Confirmed: ${client.confirmed.size}")
+    println(s"Requested ${client.received.size}")
+    client.received.forall { case (_, key) => key.identities.size == 1 }
+
+  } */
+
 }
 
 
