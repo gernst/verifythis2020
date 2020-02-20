@@ -1,4 +1,4 @@
-package pgp.types
+package pgp
 
 /**
  * Simple interface of a keyserver with validation
@@ -81,7 +81,7 @@ trait TestSpec {
 
   def |>(next: TestSpec): Boolean = andThen(next, needsPrepare = false)
 
-  def run()(implicit network: Network): Boolean
+  def run(): Boolean
 }
 
 

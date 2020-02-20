@@ -5,7 +5,6 @@ import scala.util.Random
  * https://verifythis.github.io
  */
 package object pgp {
-
   sealed trait LogType
 
   case object WARNING extends LogType

@@ -1,29 +1,30 @@
 package pgp
 
-import pgp.types._
+import scala.concurrent.ExecutionContextExecutor
+
+
 
 /**
  * Abstract model of the keyserver running at https://keys.openpgp.org/
  */
-class ServerOld extends Spec1 {
-  var keys: Map[Fingerprint, Key] = Map()
-  var uploaded: Map[Token, Fingerprint] = Map()
-  var pending: Map[Token, (Fingerprint, Identity)] = Map()
-  var confirmed: Map[Identity, Fingerprint] = Map()
-  var managed: Map[Token, Fingerprint] = Map()
+class Server extends Spec1 {
+  private var keys: Map[Fingerprint, Key] = Map()
+  private var uploaded: Map[Token, Fingerprint] = Map()
+  private var pending: Map[Token, (Fingerprint, Identity)] = Map()
+  private var confirmed: Map[Identity, Fingerprint] = Map()
+  private var managed: Map[Token, Fingerprint] = Map()
 
   /**
    * TODO:
-   * 
+   *
    * Information flow
    * - strip unconfirmed email addresses from keys!
-   * 
+   *
    * Denial of service
    * - rate limit requests for verification
    * - rate limit requests for management links
    * - expire management links
    */
-
   /**
    * Consistency invariants on the state space:
    *
@@ -75,12 +76,23 @@ class ServerOld extends Spec1 {
   }
 
   /**
+   * Yields all identities that belong to a certain key and have been confirmed by email
+   */
+  private def filtered(key: Key): Key = {
+    def confirmedByFingerprint(key: Key) =
+      (for ((ident, fingerprint) <- confirmed if key.fingerprint == fingerprint)
+        yield ident).toSet
+
+    key restrictedTo confirmedByFingerprint(key)
+  }
+
+  /**
    * Loop up keys by identity.
    *
    * Note that the key identity is not assumed to be unique.
    */
-  def byKeyId(keyid: KeyId): Iterable[Key] = {
-    for ((fingerprint, key) <- keys if key.keyId == keyid)
+  def byKeyId(keyId: KeyId): Iterable[Key] = {
+    for ((fingerprint, key) <- keys if key.keyId == keyId)
       yield key
   }
 
@@ -91,7 +103,7 @@ class ServerOld extends Spec1 {
    */
   def byEmail(identity: Identity): Option[Key] = {
     for (fingerprint <- confirmed get identity)
-      yield keys(fingerprint)
+      yield filtered(keys(fingerprint))
   }
 
   /**
@@ -144,6 +156,7 @@ class ServerOld extends Spec1 {
       pending -= token
       confirmed += (identity -> fingerprint)
     }
+    // println(confirmed.size)
   }
 
   /**
@@ -151,7 +164,7 @@ class ServerOld extends Spec1 {
    *
    * Note that this should be rate-limited.
    */
-  def requestManage(identity: Identity) = {
+  def requestManage(identity: Identity): Option[EMail] = {
     if (confirmed contains identity) {
       val token = Token.unique
       val fingerprint = confirmed(identity)

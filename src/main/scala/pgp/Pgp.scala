@@ -1,7 +1,34 @@
-package pgp.types
+package pgp
 
 import java.util.UUID
 
+case class Body(fingerprint: Fingerprint, token: Token, identity: Identity)
+
+sealed trait Data
+case class Mail(from: Actor, to: Identity, body: Body) extends Data
+case class Packet(from: Actor, to: Actor, msg: Message) extends Data
+
+sealed trait Message
+
+object Init extends Message
+
+sealed trait ServerMessage extends Message
+case class Manage(email: EMail) extends ServerMessage
+case class Verification(email: EMail) extends ServerMessage
+case class FromFingerprint(key: Option[Key]) extends ServerMessage
+case class FromKeyId(key: Iterable[Key]) extends ServerMessage
+case class FromEmail(key: Option[Key]) extends ServerMessage
+case class Uploaded(token: Token) extends ServerMessage
+
+sealed trait ClientMessage extends Message
+case class Upload(key: Key) extends ClientMessage
+case class ByFingerprint(fingerprint: Fingerprint) extends ClientMessage
+case class ByKeyId(keyId: KeyId) extends ClientMessage
+case class ByEmail(identity: Identity) extends ClientMessage
+case class RequestVerify(from: Token, identity: Identity) extends ClientMessage
+case class Verify(token: Token) extends ClientMessage
+case class RequestManage(identity: Identity) extends ClientMessage
+case class Revoke(token: Token, identities: Set[Identity]) extends ClientMessage
 
 sealed trait KeyId
 
@@ -29,7 +56,7 @@ sealed trait Key {
 
 }
 
-final case class PGPKey(keyId: KeyId,
+case class PGPKey(keyId: KeyId,
                   fingerprint: Fingerprint,
                   identities: Set[Identity]
                  ) extends Key {
@@ -50,15 +77,15 @@ object Key {
     )
 }
 
-final case class EMail(message: String, fingerprint: Fingerprint, token: Token)
+case class EMail(message: String, fingerprint: Fingerprint, token: Token)
 
-final case class FingerprintImpl(fingerprint: String) extends Fingerprint
+case class FingerprintImpl(fingerprint: String) extends Fingerprint
 
 object Fingerprint {
   def random: Fingerprint = FingerprintImpl(UUID.randomUUID().toString)
 }
 
-final case class KeyIdImpl(id: String) extends KeyId
+case class KeyIdImpl(id: String) extends KeyId
 
 object KeyId {
   def random: KeyId = KeyIdImpl(UUID.randomUUID().toString)
@@ -113,7 +140,7 @@ object Identity {
 
 // Uses type 4 UUIDs with 122 bits of strong randomness.
 // Proposed by: https://github.com/wadoon/keyserver-java/
-final case class Token(uuid: UUID)
+case class Token(uuid: UUID)
 
 object Token {
   def unique: Token = {

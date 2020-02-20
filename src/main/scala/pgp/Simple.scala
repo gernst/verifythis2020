@@ -1,7 +1,5 @@
 package pgp
 
-import types._
-
 /**
  * Very simple abstract model of a keyserver that validates additions and removal of keys.
  *

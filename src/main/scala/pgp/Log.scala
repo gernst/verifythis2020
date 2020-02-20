@@ -1,0 +1,4 @@
+package pgp
+
+object Log {
+}

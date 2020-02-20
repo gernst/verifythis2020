@@ -1,4 +1,4 @@
-package pgp.test
+package pgp
 
 import scala.util.Random
 
