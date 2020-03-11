@@ -1,7 +1,6 @@
 package pgp
 
-import scala.collection.immutable.Queue
-import scala.collection.mutable
+
 
 class ServerActor(server: Spec1) extends PassiveActor {
   def handle(from: Actor, msg: Message): Unit = msg match {
@@ -110,4 +109,6 @@ class UploadNotValidatedKeySpec(client: Client, server: ServerActor)
     result & next.run()
 
   }
+
+  def run(): Boolean = ???
 }
