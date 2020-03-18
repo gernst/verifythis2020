@@ -48,10 +48,10 @@ sealed trait Event
 // das kann weg
 case class Publish(fingerprint: Fingerprint) extends Event
 
-case class Revoke(ids: Set[Identity], fingerprint: Fingerprint) extends Event
+case class Revoke(key: Key) extends Event
 
 // vlt einfach Key als parameter
-case class Assoc(ids: Set[Identity], fingerprint: Fingerprint) extends Event
+case class Assoc(key: Key) extends Event
 
 case class Verify(ids: Set[Identity], fingerprint: Fingerprint) extends Event
 
@@ -65,6 +65,8 @@ case object Public extends Status
 case object Private extends Status
 
 case object Revoked extends Status
+
+
 
 
 trait State {
@@ -94,15 +96,54 @@ trait State {
   }
 }
 
+object HistoryEval {
+
+  type IdState = (Identity, Status)
+
+
+  /**
+    * Returns a Map that associates a fingerprint with its identities that were added/verified/revoked during the
+    * symbolic execution of the given history. Entries are marked with a Status that describes, whether the identity is
+    * public/private or has been revoked
+    */
+  def identities(history: History): Map[Fingerprint, Set[IdState]] = {
+    val acc = Map[Fingerprint, Set[IdState]]().withDefaultValue(Set.empty[IdState])
+
+
+    history.history.foldLeft(acc) { (acc, event) => event match {
+      case Assoc(key) => acc + ((key.fingerprint, key.identities.map(new IdState(_, Private))))
+
+
+      case Revoke(key) => acc updated (key.fingerprint,
+        acc(key.fingerprint) map { case (id, status) => if (key.identities contains id) (id, Revoked) else (id, status)}
+        )
+      case Verify(ids, fingerprint) => acc updated (fingerprint,
+        acc(fingerprint) map { case (id, status) => if (ids contains id) (id, Public) else (id, status) })
+      case _ =>
+    }
+
+    }
+  }
+
+
+  /**
+    * Returns the set of identities and their status given the flow of [history]
+    *
+    */
+  def publicIdentitiesFor(history: History, fingerprint: Fingerprint): Set[(Identity,Status)] = identities(history)(fingerprint) filter (_._2 == Public)
+
+
+}
+
 
 /**
  * Ohne State,
  * Überprüfen sollte separat bleiben
  */
 
-object History {
+class History {
 
-  val history = mutable.Buffer[(Event, State)]()
+  val history = mutable.Buffer[Event]()
 
 
   def todo(event: Event): State = event match {
@@ -111,7 +152,7 @@ object History {
   }
 
   def add(event: Event): State = {
-    val (_, state) = history.last
+    val event = history.last
     val next = state update event
 
     history append ((event, next))
