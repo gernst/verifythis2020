@@ -1,9 +1,13 @@
+.idea
 .cache-main
 .classpath
 .project
 .metals
+.scalafmt.conf
+.bloop
 project/
 target/
+build.sbt
 bin/
 hagrid/
 verifythis.github.io.git/
