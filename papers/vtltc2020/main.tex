@@ -8,7 +8,7 @@
 \usepackage{mathtools}
 \usepackage{proof}
 \usepackage{todonotes}
-\usepackage{minted}
+% \usepackage{minted}
 \usepackage[colorlinks=true,allcolors=blue]{hyperref}
 
 \input{definitions}
@@ -29,11 +29,13 @@ that targets a formal analysis of the secure PGP keyserver HAGRID.%
     \footnote{\url{https://gitlab.com/hagrid-keyserver/hagrid}}
 
 A major concern in the design of the PGP keyserver HAGRID is that confirmed identities in published keys are authenticated and confidential otherwise.
-The underlying security property requires reasoning about \emph{non-interference}, \emph{declassification}, as well as \emph{value-dependent} information flow.
+The underlying security property requires reasoning about \emph{non-interference}~\cite{Goguen_Meseguer_82},
+\emph{value-dependent} information flow~\cite{Zheng_Myers_07,Lourenco_Caires_15}, as well as \emph{declassification}~\cite{BanerjeeNR08}.
 We present a high-level reference model, written in Scala, that is detailed enough to capture these key concerns, but abstracts away from the internals of the server.
-Functional correctness and information flow security of the model was analyzed using automated random testing via ScalaCheck.
-We report on the testing approach, notably, how security properties are represented and checked.
-A comparison of behavior against the implementation in HAGRID is ongoing.
+Functional correctness and information flow security of the model is currently being analyzed using automated random testing via ScalaCheck,
+a variant of QuickCheck~\cite{claessen2011quickcheck}.
+% We outline the testing approach, notably, how security properties are represented and checked.
+A comparison of behavior against the implementation in HAGRID is planned for future work.
 
 \section{Models}
 
@@ -45,12 +47,14 @@ The added benefit is that models can be executed and debugged interactively with
 
 \textbf{Data Model:} In contrast to other preliminary work in the challenge,%
     \footnote{\url{https://verifythis.github.io/2019-09-10-eventb/}}
-we model keys explicitly as an immutable data type that stores a set of abstract identities (i.e., email addresses).
+we model keys explicitly as an immutable data type that stores a set of abstract identities (i.e., email addresses)~\cite[Sec~5.11]{callas1998openpgp}.
 This aspect is relevant, because regardless of which identities were originally uploaded with a given key,
 only the subset of confirmed identities should be visible in the results returned by queries to the server.
 
 \textbf{Components:} The client and the server are modeled as stateful classes which expose their functionality a set of operations.
-The server interface closely resembles that of HAGRID and consists of operations for lookup, requests for email validation and management access,
+The server interface closely resembles that of the HAGRID API%
+    \footnote{\url{https://keys.openpgp.org/about/api}}
+and consists of operations for lookup, requests for email validation and management access,
 and finally confirmation and deletion of associations between keys and identities.
 Internally, the server stores all keys every uploaded, the association between confirmed identities and keys,
 as well as the necessary bookkeeping for authenticated access in terms of tokens.
@@ -70,23 +74,33 @@ unless of course the server leaks secret or unconfirmed information.
 
 \section{Test Approach}
 
-\todo[inline]{This is probably not right. Cite Naumann's CSF paper}
-
 We consider two kinds of properties of interest: functional correctness and security.
-In our setting, correctness means primarily that uploaded keys can be looked up successfully,
-which indicates that, intuitively, correctness is to be viewed as a liveness property.
-Security, on the other hand, expresses that no secret or unconfirmed information is visible to the adversary,
-i.e., it is to be viewed as a safety property.
+In our setting, correctness means primarily that uploaded keys can be looked up successfully.
+Security, on the other hand, expresses that no secret or unconfirmed information is visible to the adversary.
 
-Security is based on the condition of \emph{non-interference}~\cite{},
-which compares sequences of interactions between the client and the server in two worlds in parallel:
+We use property-based testing via ScalaCheck, a tool that enumerates inputs according to a generator schema,
+runs the system under test, and checks properties of the resulting states.
+For functional correctness, we might specify, for example, that a key can be successfully downloaded from the keyserver after an upload;
+and that certain previously confirmed identities in the key are present.
+
+Dynamic monitoring of information flow is a little trickier.
+There are some existing approaches, such as tagging runtime values~\cite{austin2009efficient},
+and security type systems, such as Jif~\cite{myers2001jif} for Java,
+and hybrid monitors that employ logical reasoning~\cite{chudnov2014information}.
+
+However, we aim to test non-interference directly:
 Starting out with a pair of initial states that are indistinguishable by the adversary,
 the system is secure if any subsequent pair of states after some interaction steps is still indistinguishable.
 This semantic criterion is parametric in the model of the adversary, and gives fine-grained control over what is deemed secret or public information, based on the current state or in terms of the history of the execution.
-The flexibility is necessary, because the association between keys and confirmed email addresses is dynamic and changes over time with declassification events~\cite{}.
+The flexibility is desirable, because the association between keys and confirmed email addresses is dynamic and changes over time with declassification of the association between identities and keys once a key is confirmed.
+Recent knowledge-based models of security show that indeed, declassification can be conflated with assumptions on attacker knowledge (i.e., the declassified bit of information),
+such that a test run can simply be aborted when such an action happens~\cite{chudnov2018assuming}.
 
-The distinction into liveness and safety properties gives insight in how the two aspects of the system can be tested in this regard:
-Declassification logically corresponds to the assumption that a piece of information has been public already before,
-hence, security with respect to such information has to be tested only on those prefixes of execution pairs up to the point of declassification.
+The current state of the testing efforts is quite preliminary but we expect to make substatial progress soon.
+As a future step, we aim to cross-validate the model against the actual implementation,
+e.g., by replaying ``interesting'' traces from the model against the real server code.
+
+\bibliographystyle{splncs04}
+\bibliography{references}
 
 \end{document}
