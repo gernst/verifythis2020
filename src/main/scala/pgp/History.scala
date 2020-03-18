@@ -69,32 +69,6 @@ case object Revoked extends Status
 
 
 
-trait State {
-  type T
-
-  def verified: Set[Identity]
-
-  def associations: Map[Identity, Fingerprint]
-
-  def update(event: Event): State = event match {
-    case Assoc(ids, fingerprint) =>
-      val ver = verified
-      val assoc = associations
-      new State {
-        def verified: Set[Identity] = ver
-
-        def associations: Map[Identity, Fingerprint] = ids.foldLeft(assoc) { (acc, v) => acc + (v -> fingerprint) }
-      }
-
-    case Verify(ids) => new State {
-      def verified = ???
-
-      def associations = ???
-    }
-    case Revoke(ids) => ???
-    case Publish(_, _) => ???
-  }
-}
 
 object HistoryEval {
 
@@ -110,19 +84,19 @@ object HistoryEval {
     val acc = Map[Fingerprint, Set[IdState]]().withDefaultValue(Set.empty[IdState])
 
 
-    history.history.foldLeft(acc) { (acc, event) => event match {
-      case Assoc(key) => acc + ((key.fingerprint, key.identities.map(new IdState(_, Private))))
-
-
-      case Revoke(key) => acc updated (key.fingerprint,
-        acc(key.fingerprint) map { case (id, status) => if (key.identities contains id) (id, Revoked) else (id, status)}
+    history.events.foldLeft(acc) { (acc, event) =>
+      event match {
+        case Assoc(key) => acc + ((key.fingerprint, key.identities.map(new IdState(_, Private))))
+        case Revoke(key) => acc updated(key.fingerprint,
+          acc(key.fingerprint) map { case (id, status) => if (key.identities contains id) (id, Revoked) else (id, status) }
         )
-      case Verify(ids, fingerprint) => acc updated (fingerprint,
-        acc(fingerprint) map { case (id, status) => if (ids contains id) (id, Public) else (id, status) })
-      case _ =>
+        case Verify(ids, fingerprint) => acc updated(fingerprint,
+          acc(fingerprint) map { case (id, status) => if (ids contains id) (id, Public) else (id, status) })
+        case _ => acc
+      }
     }
 
-    }
+
   }
 
 
@@ -135,41 +109,9 @@ object HistoryEval {
 
 }
 
+case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
 
-/**
- * Ohne State,
- * Überprüfen sollte separat bleiben
- */
-
-class History {
-
-  val history = mutable.Buffer[Event]()
-
-
-  def todo(event: Event): State = event match {
-    case Check => add(event); check(???, ???)
-    case _ => add(event)
-  }
-
-  def add(event: Event): State = {
-    val event = history.last
-    val next = state update event
-
-    history append ((event, next))
-
-    next
-  }
-
-  def check(queryResult: Key, history: this.type): State = {
-
-    /**
-     * Step through history and collect knowledge about which identity is currently public/private etc.
-     * At each point in the history, where the attacker inserted a Check-Event, we test, whether the given information
-     * up to this point is sufficient to this point.
-     */
-
-    ???
-
-  }
-
+  def + (event: Event): Unit = { events append event }
 }
+
+
