@@ -71,7 +71,7 @@ class Server extends Spec1 {
    */
   def byFingerprint(fingerprint: Fingerprint): Option[Key] = {
     keys get fingerprint
-  }
+  } map filtered
 
   /**
    * Yields all identities that belong to a certain key and have been confirmed by email
@@ -90,8 +90,8 @@ class Server extends Spec1 {
    * Note that the key identity is not assumed to be unique.
    */
   def byKeyId(keyId: KeyId): Iterable[Key] = {
-    for ((fingerprint, key) <- keys if key.keyId == keyId)
-      yield key
+    for ((_, key) <- keys if key.keyId == keyId)
+      yield filtered(key)
   }
 
   /**
