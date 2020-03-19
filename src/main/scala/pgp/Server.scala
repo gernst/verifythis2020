@@ -168,7 +168,7 @@ class Server extends Spec1 {
       val fingerprint = confirmed(identity)
       managed += (token -> fingerprint)
       val email = EMail("manage", fingerprint, token)
-      Some(email)
+      return Some(email)
     }
     None
   }
