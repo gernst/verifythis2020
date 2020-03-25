@@ -6,8 +6,6 @@ sealed trait Event
 
 object Event {
 
-
-
   case class Revoke(ids: Set[Identity], fingerprint: Fingerprint) extends Event
 
   // vlt einfach Key als parameter
@@ -95,17 +93,31 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
 
   /**
    * This method should return all instances at which the history and the server responses differ
-   * TODO
+   * Iterate over union of fingerprints returned by server and in history
    */
-  def check(server: Server) = {
+  def check(server: Server): Unit = {
+    val responses = (identities.keys flatMap server.byFingerprint map (
+      key => (key.fingerprint, key.identities)
+      )).toMap
 
-    for ((fingerprint, identities) <- identities;
-         response = server byFingerprint fingerprint) {
-      response match {
-        case None => _
-        case Some(key) => (key.identities union (identities map (_._1)))
+    val historyEval = identities
 
+    val allKeys = historyEval.keys.toSet union responses.keys.toSet
+    for (fingerprint <- allKeys) {
+      (responses.get(fingerprint), historyEval.get(fingerprint)) match {
+        case (Some(identities), Some(idStates)) => checkStates(identities, idStates)
+        case (None, Some(idStates)) =>
+        case (Some(identities), None) =>
+        case (None, None) => _ // This can never happen
       }
+    }
+
+  }
+
+  private def checkStates(identities: Set[Identity], states: Set[(Identity, Status)]): Set[Identity] = {
+    val ids = identities union (states map (_._1))
+    for (id <- ids) {
+      (identities.apply(id))
     }
   }
 

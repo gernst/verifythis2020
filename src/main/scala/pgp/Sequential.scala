@@ -10,17 +10,16 @@ object Sequential {
       event match {
         case Event.Upload(key) =>
           uploaded += ((key.fingerprint, server upload key))
-        case Event.Check => _
         case Event.Revoke(identities, _) =>
           for (token <- server requestManage (identities.head) map (_.token)) {
             server revoke(token, identities)
           }
-
         case Event.Verify(identities, fingerprint) =>
           val uploadToken = uploaded(fingerprint)
           for (Body(_, token: Token, _) <- server requestVerify(uploadToken, identities)) {
             server verify token
           }
+        case Event.Check => _
       }
     }
   }
