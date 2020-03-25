@@ -17,9 +17,6 @@ object Event {
 
 }
 
-/**
- *
- */
 sealed trait Status
 
 case object Public extends Status
@@ -27,6 +24,7 @@ case object Public extends Status
 case object Private extends Status
 
 case object Revoked extends Status
+
 
 /**
  *
@@ -95,7 +93,7 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
    * This method should return all instances at which the history and the server responses differ
    * Iterate over union of fingerprints returned by server and in history
    */
-  def check(server: Server): Unit = {
+  def check(server: Server): Map[Fingerprint, Identity] = {
     val responses = (identities.keys flatMap server.byFingerprint map (
       key => (key.fingerprint, key.identities)
       )).toMap
@@ -103,14 +101,15 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
     val historyEval = identities
 
     val allKeys = historyEval.keys.toSet union responses.keys.toSet
-    for (fingerprint <- allKeys) {
-      (responses.get(fingerprint), historyEval.get(fingerprint)) match {
+    val x = for (fingerprint <- allKeys)
+      yield (fingerprint, (responses.get(fingerprint), historyEval.get(fingerprint)) match {
         case (Some(identities), Some(idStates)) => checkStates(identities, idStates)
-        case (None, Some(idStates)) =>
-        case (Some(identities), None) =>
-        case (None, None) => _ // This can never happen
-      }
-    }
+        case (None, Some(idStates)) => idStates map (_._1)
+        case (Some(identities), None) => identities
+      })
+
+    x.toMap
+
 
   }
 
