@@ -15,15 +15,20 @@ trait Actor {
   def handle(from: Actor, msg: Body)
 
   def send(to: Actor, msg: Message): Unit = Network.send(this, to, msg)
+
   def send(to: Identity, msg: Body): Unit = Network.send(this, to, msg)
+
   def register(identity: Identity): Unit = Network.register(identity, this)
 }
 
 trait PassiveActor extends Actor {
   def canAct = false
+
   def act() = ???
 }
 
+
+// Mehrere Executions mit unterschiedlichen Strategies
 object Execution {
   val actors = mutable.Buffer[Actor]()
 

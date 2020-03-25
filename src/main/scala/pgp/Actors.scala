@@ -93,6 +93,15 @@ class VerifyActor(client: Client, id: Identity, server: ServerActor) extends Act
   }
 }
 
+class RevokeActor(client: Client, id: Identity, server: ServerActor) extends Actor {
+
+  def canAct: Boolean = {
+    client.confirmed contains id
+  }
+
+
+}
+
 class UploadNotValidatedKeySpec(client: Client, server: ServerActor)
   extends TestSpec {
 
