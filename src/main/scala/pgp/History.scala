@@ -5,10 +5,8 @@ import scala.collection.mutable
 sealed trait Event
 
 object Event {
-
   case class Revoke(ids: Set[Identity], fingerprint: Fingerprint) extends Event
 
-  // vlt einfach Key als parameter
   case class Upload(key: Key) extends Event
 
   case class Verify(ids: Set[Identity], fingerprint: Fingerprint) extends Event
@@ -25,10 +23,18 @@ case object Private extends Status
 
 case object Revoked extends Status
 
+sealed trait EvalResult
 
-/**
- *
- */
+object EvalResult {
+
+  case object Ok extends EvalResult
+
+  case object ServerMismatch extends EvalResult
+
+  case class HistoryMismatch(idState: (Identity, Status)) extends EvalResult
+
+}
+
 case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
   type IdState = (Identity, Status)
 
@@ -41,6 +47,24 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
    */
   def publicIdentitiesFor(fingerprint: Fingerprint): Set[(Identity, Status)] =
     identities(fingerprint) filter (_._2 == Public)
+
+  /**
+   * Turn a high level history into a Seq of actors. The execution of this Seq is expected to result in the same effects
+   * as the history.
+   */
+  def toActors(history: History,
+               client: Client,
+               server: ServerActor): Seq[Actor] = history.events flatMap {
+    case Event.Upload(key: Key) => Seq(new UploadActor(client, key, server))
+    case Event.Revoke(ids: Set[Identity], fingerprint: Fingerprint) =>
+      Seq(new PassiveActor {
+        override def handle(from: Actor, msg: Message): Unit = {}
+
+        override def handle(from: Actor, msg: Body): Unit = {}
+      })
+    case Event.Verify(ids: Set[Identity], _) =>
+      ids map (new VerifyActor(client, _, server))
+  }
 
   /**
    * Returns a Map that associates a fingerprint with its identities that were added/verified/revoked during the
@@ -72,52 +96,48 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
   }
 
   /**
-   * Turn a high level history into a Seq of actors. The execution of this Seq is expected to result in the same effects
-   * as the history.
-   */
-  def toActors(history: History,
-               client: Client,
-               server: ServerActor): Seq[Actor] = history.events flatMap {
-    case Event.Upload(key: Key) => Seq(new UploadActor(client, key, server))
-    case Event.Revoke(ids: Set[Identity], fingerprint: Fingerprint) =>
-      Seq(new PassiveActor {
-        override def handle(from: Actor, msg: Message): Unit = {}
-
-        override def handle(from: Actor, msg: Body): Unit = {}
-      })
-    case Event.Verify(ids: Set[Identity], _) =>
-      ids map (new VerifyActor(client, _, server))
-  }
-
-  /**
    * This method should return all instances at which the history and the server responses differ
    * Iterate over union of fingerprints returned by server and in history
    */
-  def check(server: Server): Map[Fingerprint, Identity] = {
+  def check(server: Server): Map[Fingerprint, Map[Identity, EvalResult]] = {
     val responses = (identities.keys flatMap server.byFingerprint map (
       key => (key.fingerprint, key.identities)
       )).toMap
 
     val historyEval = identities
-
     val allKeys = historyEval.keys.toSet union responses.keys.toSet
-    val x = for (fingerprint <- allKeys)
-      yield (fingerprint, (responses.get(fingerprint), historyEval.get(fingerprint)) match {
-        case (Some(identities), Some(idStates)) => checkStates(identities, idStates)
-        case (None, Some(idStates)) => idStates map (_._1)
-        case (Some(identities), None) => identities
-      })
 
-    x.toMap
+    allKeys.foldLeft(Map.empty[Fingerprint, Map[Identity, EvalResult]]) {
+      (acc, fingerprint) =>
+        val historyIds = historyEval(fingerprint)
+        val serverIds = responses(fingerprint)
 
+        val checked = checkStates(serverIds, historyIds)
+
+        acc + (fingerprint -> checked)
+    }
 
   }
 
-  private def checkStates(identities: Set[Identity], states: Set[(Identity, Status)]): Set[Identity] = {
-    val ids = identities union (states map (_._1))
-    for (id <- ids) {
-      (identities.apply(id))
+  private def checkStates(
+                           identities: Set[Identity],
+                           states: Set[(Identity, Status)]
+                         ): Map[Identity, EvalResult] = {
+    val allIds = identities union (states map (_._1))
+
+    allIds.foldLeft(Map.empty[Identity, EvalResult]) { (acc, id) =>
+      val serverState = identities(id)
+      val state = states.find(_._1 == id)
+
+      val result: EvalResult = (state, serverState) match {
+        case (None, false) => EvalResult.Ok
+        case (None, true) => EvalResult.ServerMismatch
+        case (Some(idState), false) => EvalResult.HistoryMismatch(idState)
+        case (Some(_), true) => EvalResult.Ok
+      }
+      acc + (id -> result)
     }
+
   }
 
 }

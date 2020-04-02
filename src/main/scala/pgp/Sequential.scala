@@ -19,7 +19,7 @@ object Sequential {
           for (Body(_, token: Token, _) <- server requestVerify(uploadToken, identities)) {
             server verify token
           }
-        case Event.Check => _
+        case Event.Check =>
       }
     }
   }

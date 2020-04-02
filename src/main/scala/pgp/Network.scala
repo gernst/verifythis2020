@@ -13,9 +13,7 @@ trait Actor {
 
   def handle(from: Actor, msg: Message)
   def handle(from: Actor, msg: Body)
-
   def send(to: Actor, msg: Message): Unit = Network.send(this, to, msg)
-
   def send(to: Identity, msg: Body): Unit = Network.send(this, to, msg)
 
   def register(identity: Identity): Unit = Network.register(identity, this)
@@ -60,7 +58,7 @@ object Execution {
 }
 
 object Network {
-  val mailboxes = mutable.Map[Identity, Actor]()
+  val mailboxes: mutable.Map[Identity, Actor] = mutable.Map[Identity, Actor]()
 
   def register(identity: Identity, actor: Actor): Unit = {
     mailboxes += (identity -> actor)

@@ -175,7 +175,6 @@ class Server extends Spec1 {
 
   /**
    * Revoke confirmation of a set of identities given a management key.
-   *
    * Only if all addresses match the respective key, they will be invalidated.
    */
   def revoke(token: Token, identities: Set[Identity]) {

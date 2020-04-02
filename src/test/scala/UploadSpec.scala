@@ -12,13 +12,9 @@ object UploadSpec extends Properties("UploadSpec") {
 
   val serverGen: Gen[ServerActor] = Gen.oneOf(servers)
 
-  val identityGen: Gen[Set[Identity]] = for {
-    mail1 <- Gen.oneOf(Identity.mails())
-    mail2 <- Gen.oneOf(Identity.mails())
-  } yield Set(Identity(mail1), Identity(mail2))
 
   val clientGen: Gen[Client] = for {
-    id <- identityGen
+    id <- Generators.identityGen(2)
     key = Key.random(id)
   } yield Client(id, Set(key))
 
