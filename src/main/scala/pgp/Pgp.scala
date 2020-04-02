@@ -94,7 +94,7 @@ object KeyId {
 case class Identity(email: String)
 
 object Identity {
-  def mails(): Iterable[String] = Iterable(
+  def mails: Iterable[String] = Iterable(
     "ilyaz@comcast.net",
     "erynf@comcast.net",
     "phish@verizon.net",
