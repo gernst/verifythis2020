@@ -45,3 +45,9 @@
  Durch Histoy durchlaufen und sich Verify und Revoke anschauen.
  
  Map durchlaufen und für fingerprint anfragen an den Server schicken -> Response dann mit Map eintrag abgleichen
+ 
+ ## History
+
+ History per Hand aufschreiben
+  -> 1 gültige History und 1 ungültige
+  -> Manuell laufen lassen.

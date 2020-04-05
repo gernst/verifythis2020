@@ -4,7 +4,10 @@ import scala.collection.mutable
 
 object Sequential {
 
-  def execute(server: Server, history: History): Unit = {
+  /**
+   * TODO: Rewrite this method to account for the fact that the given history might very well be nonsense.
+   **/
+  def execute(server: Spec1, history: History): Unit = {
     val uploaded: mutable.Map[Fingerprint, Token] = mutable.Map()
     for (event <- history.events) {
       event match {
@@ -15,10 +18,15 @@ object Sequential {
             server revoke(token, identities)
           }
         case Event.Verify(identities, fingerprint) =>
-          val uploadToken = uploaded(fingerprint)
-          for (Body(_, token: Token, _) <- server requestVerify(uploadToken, identities)) {
-            server verify token
-          }
+
+          for {
+            uploadToken <- uploaded.get(fingerprint)
+            Body(_, token: Token, _) <- server requestVerify(uploadToken, identities)
+          } server verify token
+        //          val uploadToken = uploaded(fingerprint)
+        //          for (Body(_, token: Token, _) <- server requestVerify(uploadToken, identities)) {
+        //            server verify token
+        //          }
         case Event.Check =>
       }
     }

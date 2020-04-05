@@ -5,7 +5,7 @@ import scala.collection.mutable
 
 class Context(val keys: Map[Fingerprint, Key])
 
-object HistorySpec {
+object HistoryGen {
 
 
   private def historyRec: Gen[mutable.Buffer[Event]] = ???

@@ -99,7 +99,7 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
    * This method should return all instances at which the history and the server responses differ
    * Iterate over union of fingerprints returned by server and in history
    */
-  def check(server: Server): Map[Fingerprint, Map[Identity, EvalResult]] = {
+  def check(server: Spec1): Map[Fingerprint, Map[Identity, EvalResult]] = {
     val responses = (identities.keys flatMap server.byFingerprint map (
       key => (key.fingerprint, key.identities)
       )).toMap

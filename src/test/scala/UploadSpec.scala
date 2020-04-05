@@ -5,21 +5,14 @@ import pgp._
 
 object UploadSpec extends Properties("UploadSpec") {
 
-  val serverSecure = new ServerActor(new Server)
-  val serverInsecure = new ServerActor(new ServerOld)
-  val servers = List(serverSecure, serverInsecure)
-
-
-  val serverGen: Gen[ServerActor] = Gen.oneOf(servers)
-
 
   val clientGen: Gen[Client] = for {
-    id <- Generators.identityGen(2)
+    id <- Generators.identitySetGen(2)
     key = Key.random(id)
   } yield Client(id, Set(key))
 
   val uploadSequenceGen: Gen[(Client, ServerActor, List[Actor])] = for {
-    server <- serverGen
+    server <- Generators.serverActorGen
     client <- clientGen
   } yield
     (

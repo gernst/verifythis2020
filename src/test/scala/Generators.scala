@@ -1,17 +1,26 @@
 import org.scalacheck.Gen
-import pgp.{Identity, Key}
+import pgp._
 
 object Generators {
 
-  def identityGen: Gen[Identity] = for (
-    mail <- Gen.oneOf(Identity.mails)
-  ) yield Identity(mail)
+  val serverSecure = new ServerActor(new Server)
+  val serverInsecure = new ServerActor(new ServerOld)
+  val servers = List(serverSecure, serverInsecure)
+
+  /**
+   * TODO: Rename Spec1 to something more descriptive
+   */
+  val serverGen: Gen[Spec1] = Gen.oneOf(new Server, new Server)
+
+  val serverActorGen: Gen[ServerActor] = Gen.oneOf(servers)
+
+  def identityGen: Gen[Identity] =
+    for (mail <- Gen.oneOf(Identity.mails)) yield Identity(mail)
 
   def identitySetGen(size: Int): Gen[Set[Identity]] =
-    Gen.listOfN(size, identityGen) flatMap (_.toSet)
+    for (identities <- Gen.listOfN(size, identityGen)) yield identities.toSet
 
-  def keyGen(idSize: Int): Gen[Key] = for {
-    id <- identitySetGen(idSize)
-  } yield Key.random(id)
+  def keyGen(idSize: Int): Gen[Key] =
+    for (id <- identitySetGen(idSize)) yield Key.random(id)
 
 }
