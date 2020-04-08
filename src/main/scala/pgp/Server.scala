@@ -1,7 +1,5 @@
 package pgp
 
-
-
 /**
  * Abstract model of the keyserver running at https://keys.openpgp.org/
  */
@@ -70,8 +68,8 @@ class Server extends Spec1 {
    *
    */
   def byFingerprint(fingerprint: Fingerprint): Option[Key] = {
-    keys get fingerprint
-  } map filtered
+    keys get fingerprint map filtered
+  }
 
   /**
    * Yields all identities that belong to a certain key and have been confirmed by email
@@ -133,13 +131,16 @@ class Server extends Spec1 {
     if (uploaded contains from) {
       val fingerprint = uploaded(from)
       val key = keys(fingerprint)
-      if (identities subsetOf key.identities) identities
-        .map(identity => {
-          val token = Token.unique
-          pending += (token -> (fingerprint, identity))
-          val email = Body(fingerprint, token, identity)
-          email
-        }).toSeq else Nil
+      if (identities subsetOf key.identities)
+        identities
+          .map(identity => {
+            val token = Token.unique
+            pending += (token -> (fingerprint, identity))
+            val email = Body(fingerprint, token, identity)
+            email
+          })
+          .toSeq
+      else Nil
     } else Nil
   }
 

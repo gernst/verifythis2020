@@ -2,9 +2,7 @@ import org.scalacheck.Prop.forAll
 import org.scalacheck.{Gen, Properties}
 import pgp._
 
-
 object UploadSpec extends Properties("UploadSpec") {
-
 
   val clientGen: Gen[Client] = for {
     id <- Generators.identitySetGen(2)
@@ -37,7 +35,6 @@ object UploadSpec extends Properties("UploadSpec") {
 
       println(client.received.size)
       client.received.forall { case (_, key) => key.identities.size == 1 }
-
 
   }
 }

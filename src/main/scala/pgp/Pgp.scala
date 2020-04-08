@@ -34,7 +34,6 @@ sealed trait KeyId
 
 sealed trait Fingerprint
 
-
 /**
  * Having the key as a trait might actually not be a good idea.
  * It forces the server to relay the downsizing of currently validated identities to the key itself.
@@ -58,13 +57,12 @@ sealed trait Key {
 
 case class PGPKey(keyId: KeyId,
                   fingerprint: Fingerprint,
-                  identities: Set[Identity]
-                 ) extends Key {
-
+                  identities: Set[Identity])
+  extends Key {
 
   override def restrictedTo(ids: Set[Identity]): Key = {
     assert(ids subsetOf identities)
-    PGPKey(keyId,fingerprint,ids)
+    PGPKey(keyId, fingerprint, ids)
   }
 }
 
@@ -94,37 +92,39 @@ object KeyId {
 case class Identity(email: String)
 
 object Identity {
-  def mails: Iterable[String] = Iterable(
-    "ilyaz@comcast.net",
-    "erynf@comcast.net",
-    "phish@verizon.net",
-    "empathy@yahoo.ca",
-    "peoplesr@optonline.net",
-    "crowl@verizon.net",
-    "ranasta@live.com",
-    "rupak@mac.com",
-    "wonderkid@yahoo.com",
-    "eminence@hotmail.com",
-    "crusader@sbcglobal.net",
-    "tezbo@att.net",
-    "mailarc@yahoo.com",
-    "majordick@me.com",
-    "jaffe@aol.com",
-    "mschilli@live.com",
-    "whimsy@yahoo.com",
-    "boser@yahoo.ca",
-    "bulletin@optonline.net",
-    "jonas@yahoo.ca",
-    "gator@hotmail.com",
-    "isotopian@outlook.com",
-    "formis@aol.com",
-    "hutton@outlook.com",
-    "fviegas@outlook.com",
-    "dkasak@msn.com",
-    "sopwith@live.com",
-    "horrocks@me.com",
-    "tfinniga@comcast.net",
-    "gfxguy@sbcglobal.net")
+  def mails: Iterable[String] =
+    Iterable(
+      "ilyaz@comcast.net",
+      "erynf@comcast.net",
+      "phish@verizon.net",
+      "empathy@yahoo.ca",
+      "peoplesr@optonline.net",
+      "crowl@verizon.net",
+      "ranasta@live.com",
+      "rupak@mac.com",
+      "wonderkid@yahoo.com",
+      "eminence@hotmail.com",
+      "crusader@sbcglobal.net",
+      "tezbo@att.net",
+      "mailarc@yahoo.com",
+      "majordick@me.com",
+      "jaffe@aol.com",
+      "mschilli@live.com",
+      "whimsy@yahoo.com",
+      "boser@yahoo.ca",
+      "bulletin@optonline.net",
+      "jonas@yahoo.ca",
+      "gator@hotmail.com",
+      "isotopian@outlook.com",
+      "formis@aol.com",
+      "hutton@outlook.com",
+      "fviegas@outlook.com",
+      "dkasak@msn.com",
+      "sopwith@live.com",
+      "horrocks@me.com",
+      "tfinniga@comcast.net",
+      "gfxguy@sbcglobal.net"
+    )
 }
 
 /**
@@ -135,9 +135,6 @@ object Identity {
  *
  * NOTE: For now this simply uses the same UUIDs that are being used for token generation
  */
-
-
-
 // Uses type 4 UUIDs with 122 bits of strong randomness.
 // Proposed by: https://github.com/wadoon/keyserver-java/
 case class Token(uuid: UUID)

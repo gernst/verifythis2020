@@ -14,6 +14,7 @@ trait Spec0 {
 }
 
 object Spec0 {
+
   /**
    * Adapter that implements Spec0 with Spec1.
    */
@@ -37,7 +38,7 @@ object Spec0 {
 
     def confirmDel(token: Token): Unit = {
       /* Note: Can't implement this without additional information here.
-       * 
+       *
        * The problem is that Spec1 gives management tokens
        * that are not specific to which identity shall be deleted.
        * We don't know the request for which this token was issued.
@@ -83,7 +84,6 @@ trait TestSpec {
 
   def run(): Boolean
 }
-
 
 sealed trait ActorState
 

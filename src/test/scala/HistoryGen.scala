@@ -7,7 +7,6 @@ class Context(val keys: Map[Fingerprint, Key])
 
 object HistoryGen {
 
-
   private def historyRec: Gen[mutable.Buffer[Event]] = ???
 
   /**
@@ -15,9 +14,10 @@ object HistoryGen {
    * This should return a "random" history, in which the contained events are in a valid order
    * (e.g.: No Revoke/Verify before Upload)
    */
-  def validHistory(length: Int): Gen[History] = for {
-    events <- Gen.lzy(historyRec)
-  } yield History(events)
+  def validHistory(length: Int): Gen[History] =
+    for {
+      events <- Gen.lzy(historyRec)
+    } yield History(events)
 
   def randomHistory(length: Int): Gen[History] =
     for {

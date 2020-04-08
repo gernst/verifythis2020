@@ -1,33 +1,43 @@
 import org.scalacheck.Prop.forAll
-import org.scalacheck.{Gen, Properties}
-import pgp.{History, Sequential}
+import org.scalacheck.{Arbitrary, Gen, Properties}
+import pgp._
 
 object HistoryExecutionSpec extends Properties("History execution") {
 
-  val MinHistorySize = 10
+  import Generators.serverGen
+  import History.prettyPrint
+  import HistoryGen.randomHistory
+
+  val MinHistorySize = 20
   val MaxHistorySize = 50
+
+  def anyServer(): Spec1 = new ServerOld()
 
   def sizedHistoryGen: Gen[Gen[History]] =
     for {
       size <- Gen.choose(MinHistorySize, MaxHistorySize)
-    } yield HistoryGen.randomHistory(size)
+    } yield randomHistory(size)
 
+  implicit val arbitraryHistory: Arbitrary[Gen[History]] = Arbitrary(
+    sizedHistoryGen
+  )
 
   /**
-   * Not sure about the nested forAlls.
-   * Seems necessary to ensure that every history is executed on a fresh server instance.
-   * Maybe this isn't necessary ??
+   *
    */
-  property("historyMatchesServerState") = forAll(sizedHistoryGen) { gen =>
-    forAll(gen, Generators.serverGen) { (history, server) =>
-      val sequentialExec = Sequential.execute(server, history)
+  property("historyMatchesServerState") = forAll { gen: Gen[History] =>
+    forAll(gen, serverGen) { (history, server) =>
+      Sequential.execute(server, history)
       val result = history.check(server)
 
-      // the result of check is only valid if it returns an empty Map.
-      if (result.nonEmpty) {
-        println(result)
+      val success = result.forall {
+        case (_, idMap) => idMap.forall(_._2 == EvalResult.Ok)
       }
-      result.isEmpty
+
+      if (!success) println(prettyPrint(result))
+
+      success
+
     }
   }
 }

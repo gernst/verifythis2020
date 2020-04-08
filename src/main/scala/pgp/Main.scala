@@ -11,8 +11,6 @@ object Main extends App {
   //  test.prepare()
 
   // println(test.run())
-
-
   /* def run(): Boolean = {
 
     val seq = pgp.c(0)
@@ -41,8 +39,6 @@ object Main extends App {
   } */
 
 }
-
-
 //
 //object OldMain {
 //
@@ -69,7 +65,6 @@ object Main extends App {
 //           channels: Seq[(Channel[ClientMessage], Channel[ServerMessage])],
 //           clients: Seq[ClientActor],
 //           server: ServerActor): Unit = {
-//    //TODO: Collect all futures and await for them collectively. NOT FINSIHED
 //    val futures = channels.map {
 //      case (clientChannel, serverChannel) =>
 //        server.run(clientChannel.recv, serverChannel.send)

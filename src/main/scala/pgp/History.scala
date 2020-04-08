@@ -1,6 +1,6 @@
 package pgp
 
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 
 sealed trait Event
 
@@ -27,12 +27,43 @@ sealed trait EvalResult
 
 object EvalResult {
 
+  case class Mismatch(fromHistory: Option[(Identity, Status)],
+                      fromServer: Option[Identity])
+    extends EvalResult
+
   case object Ok extends EvalResult
 
-  case object ServerMismatch extends EvalResult
+}
 
-  case class HistoryMismatch(idState: (Identity, Status)) extends EvalResult
+object History {
 
+  implicit class Pretty[K, V](val map: Map[K, V]) {
+    def prettyPrint: Pretty[K, V] = this
+
+    override def toString: String =
+      "Map (\n" + toStringLines.mkString("\n") + "\n)"
+
+    def toStringLines: immutable.Iterable[String] =
+      map
+        .flatMap { case (k, v) => keyValueToString(k, v) }
+        .map(indentLine)
+
+    def keyValueToString(key: K, value: V): Iterable[String] = {
+      value match {
+        case v: Map[_, _] =>
+          Iterable(key + " -> Map (") ++ v.prettyPrint.toStringLines ++ Iterable(
+            ")"
+          )
+        case x => Iterable(key + " -> " + x.toString)
+      }
+    }
+
+    def indentLine(line: String): String = "\t" + line
+  }
+
+  def prettyPrint(
+                   checked: Map[Fingerprint, Map[Identity, EvalResult]]
+                 ): String = checked.prettyPrint.toString
 }
 
 case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
@@ -47,6 +78,71 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
    */
   def publicIdentitiesFor(fingerprint: Fingerprint): Set[(Identity, Status)] =
     identities(fingerprint) filter (_._2 == Public)
+
+  /**
+   * Returns a Map that associates a fingerprint with its identities that were added/verified/revoked during the
+   * symbolic execution of the given history. Entries are marked with a Status that describes, whether the identity is
+   * public/private or has been revoked
+   */
+  def identities: Map[Fingerprint, Set[IdState]] = {
+
+    val result: mutable.Map[Fingerprint, Set[IdState]] = mutable.Map()
+
+    val (uploaded, confirmed, revoked) = events.foldLeft(
+      (
+        Map[Fingerprint, Key](),
+        Map[Identity, Fingerprint](),
+        Map[Identity, Fingerprint]()
+      )
+    ) {
+      case ((uploaded, confirmed, revoked), event) =>
+        event match {
+          case Event.Upload(key) =>
+            (uploaded + (key.fingerprint -> key), confirmed, revoked)
+          case Event.Revoke(ids, fingerprint) =>
+            (
+              uploaded,
+              confirmed -- ids,
+              revoked ++ (ids map (_ -> fingerprint))
+            )
+          case Event.Verify(ids, fingerprint) =>
+            uploaded.get(fingerprint) match {
+              case Some(key) if ids subsetOf key.identities =>
+                (
+                  uploaded,
+                  confirmed ++ (ids map (_ -> fingerprint)),
+                  revoked -- ids
+                )
+              case _ => (uploaded, confirmed, revoked)
+            }
+        }
+    }
+
+    val withUploaded = uploaded.foldLeft(result) { (acc, elem) =>
+      acc + (elem._1 -> elem._2.identities.map((_, Private)))
+    }
+
+    val withUploadedAndConfirmed = confirmed
+      .foldLeft(withUploaded) { (acc, elem) =>
+        acc.get(elem._2) match {
+          case Some(states) =>
+            acc updated(elem._2, states - (elem._1 -> Private) - (elem._1 -> Revoked) + (elem._1 -> Public))
+          case _ => acc
+        }
+      }
+      .toMap
+
+    val withUploadedAndConfirmedAndRevoked = revoked
+      .foldLeft(withUploadedAndConfirmed) { (acc, elem) =>
+        acc.get(elem._2) match {
+          case Some(states) if states contains(elem._1, Public) =>
+            acc updated(elem._2, states - (elem._1 -> Public) + (elem._1 -> Revoked))
+          case _ => acc
+        }
+      }
+
+    withUploadedAndConfirmedAndRevoked
+  }
 
   /**
    * Turn a high level history into a Seq of actors. The execution of this Seq is expected to result in the same effects
@@ -67,37 +163,10 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
   }
 
   /**
-   * Returns a Map that associates a fingerprint with its identities that were added/verified/revoked during the
-   * symbolic execution of the given history. Entries are marked with a Status that describes, whether the identity is
-   * public/private or has been revoked
-   */
-  def identities: Map[Fingerprint, Set[IdState]] = {
-    val acc =
-      Map[Fingerprint, Set[IdState]]().withDefaultValue(Set.empty[IdState])
-
-    events.foldLeft(acc) { (acc, event) =>
-      event match {
-        case Event.Upload(key) =>
-          acc + ((key.fingerprint, key.identities.map(new IdState(_, Private))))
-        case Event.Revoke(ids: Set[Identity], fingerprint: Fingerprint) =>
-          acc updated(fingerprint,
-            acc(fingerprint) map {
-              case (id, status) =>
-                if (ids contains id) (id, Revoked) else (id, status)
-            })
-        case Event.Verify(ids, fingerprint) =>
-          acc updated(fingerprint,
-            acc(fingerprint) map {
-              case (id, status) =>
-                if (ids contains id) (id, Public) else (id, status)
-            })
-      }
-    }
-  }
-
-  /**
    * This method should return all instances at which the history and the server responses differ
    * Iterate over union of fingerprints returned by server and in history
+   *
+   * TODO: Account for non existent fingerprint
    */
   def check(server: Spec1): Map[Fingerprint, Map[Identity, EvalResult]] = {
     val responses = (identities.keys flatMap server.byFingerprint map (
@@ -109,8 +178,8 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
 
     allKeys.foldLeft(Map.empty[Fingerprint, Map[Identity, EvalResult]]) {
       (acc, fingerprint) =>
-        val historyIds = historyEval(fingerprint)
-        val serverIds = responses(fingerprint)
+        val historyIds = historyEval.getOrElse(fingerprint, Set.empty)
+        val serverIds = responses.getOrElse(fingerprint, Set.empty)
 
         val checked = checkStates(serverIds, historyIds)
 
@@ -126,18 +195,50 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
     val allIds = identities union (states map (_._1))
 
     allIds.foldLeft(Map.empty[Identity, EvalResult]) { (acc, id) =>
-      val serverState = identities(id)
+      val serverState = identities.find(_ == id)
       val state = states.find(_._1 == id)
 
       val result: EvalResult = (state, serverState) match {
-        case (None, false) => EvalResult.Ok
-        case (None, true) => EvalResult.ServerMismatch
-        case (Some(idState), false) => EvalResult.HistoryMismatch(idState)
-        case (Some(_), true) => EvalResult.Ok
+        case (None, None) => EvalResult.Ok
+        case (None, Some(id)) => EvalResult.Mismatch(None, Some(id))
+
+        case (Some((id, Private)), None) => EvalResult.Ok
+        case (Some((id, Public)), None) =>
+          EvalResult.Mismatch(Some((id, Public)), None)
+        case (Some((id, Revoked)), None) => EvalResult.Ok
+
+        case (Some((identity, Private)), Some(id)) =>
+          EvalResult.Mismatch(Some((identity, Private)), Some(id))
+        case (Some((identity, Public)), Some(id)) => EvalResult.Ok
+        case (Some((identity, Revoked)), Some(id)) =>
+          EvalResult.Mismatch(Some((identity, Revoked)), Some(id))
       }
       acc + (id -> result)
     }
 
   }
 
+  override def toString: String = s"History(${events.size})"
+
+  //  events
+  //      .map(e => s"${e.getClass.getName} -> $e")
+  //      .foldLeft("") { (acc: String, event: String) =>
+  //        s"$acc\n$event "
+  //      }
+
+
 }
+
+/**
+ * Map(
+ * FingerprintImpl(612d6529-43c7-49d5-869f-62724dc2bb07) ->
+ * Map(
+ * Identity(ilyaz@comcast.net) -> Mismatch(Some((Identity(ilyaz@comcast.net),Private)),Some(Identity(ilyaz@comcast.net))),
+ * Identity(majordick@me.com) -> Ok),
+ * FingerprintImpl(faf9794a-4429-499b-9c4b-4019f77531b9) ->
+ * Map(
+ * Identity(tezbo@att.net) -> Mismatch(Some((Identity(tezbo@att.net),Private)),Some(Identity(tezbo@att.net))),
+ * Identity(rupak@mac.com) -> Ok))
+ *
+ *
+ */

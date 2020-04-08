@@ -1,7 +1,5 @@
 package pgp
 
-
-
 class ServerActor(server: Spec1) extends PassiveActor {
   def handle(from: Actor, msg: Message): Unit = msg match {
     case ByEmail(identity) =>
@@ -46,7 +44,8 @@ class UploadActor(client: Client, key: Key, server: ServerActor) extends Actor {
   def handle(from: Actor, msg: Body): Unit = {}
 }
 
-class ByMailActor(client: Client, id: Identity, server: ServerActor) extends Actor {
+class ByMailActor(client: Client, id: Identity, server: ServerActor)
+  extends Actor {
   def canAct = {
     client.confirmed contains id
   }
@@ -66,7 +65,8 @@ class ByMailActor(client: Client, id: Identity, server: ServerActor) extends Act
   def handle(from: Actor, msg: Body): Unit = {}
 }
 
-class VerifyActor(client: Client, id: Identity, server: ServerActor) extends Actor {
+class VerifyActor(client: Client, id: Identity, server: ServerActor)
+  extends Actor {
   register(id)
 
   def canAct = {
@@ -83,8 +83,7 @@ class VerifyActor(client: Client, id: Identity, server: ServerActor) extends Act
     send(server, RequestVerify(token, id))
   }
 
-  def handle(from: Actor, msg: Message): Unit = {
-  }
+  def handle(from: Actor, msg: Message): Unit = {}
 
   override def handle(from: Actor, msg: Body): Unit = {
     val Body(f, token, identity) = msg

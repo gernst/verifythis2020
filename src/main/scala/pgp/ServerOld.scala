@@ -21,7 +21,6 @@ class ServerOld extends Spec1 {
    * - rate limit requests for management links
    * - expire management links
    */
-
   /**
    * Consistency invariants on the state space:
    *
@@ -121,13 +120,15 @@ class ServerOld extends Spec1 {
     if (uploaded contains from) {
       val fingerprint = uploaded(from)
       val key = keys(fingerprint)
-      if (identities subsetOf key.identities) identities
-        .map(identity => {
-          val token = Token.unique
-          pending += (token -> (fingerprint, identity))
-          val email = Body(fingerprint, token, identity)
-          email
-        }).toSeq
+      if (identities subsetOf key.identities)
+        identities
+          .map(identity => {
+            val token = Token.unique
+            pending += (token -> (fingerprint, identity))
+            val email = Body(fingerprint, token, identity)
+            email
+          })
+          .toSeq
       else Nil
     } else Nil
   }

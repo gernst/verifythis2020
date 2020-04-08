@@ -12,7 +12,6 @@ package object pgp {
   case object INSECURE extends LogType
   case object BOTH extends LogType
 
-
   def r(): Iterator[Int] = Iterator.continually(Random.nextInt)
 
   def k(is: Int*): Iterator[Int] = is.iterator

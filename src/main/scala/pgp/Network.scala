@@ -25,7 +25,6 @@ trait PassiveActor extends Actor {
   def act() = ???
 }
 
-
 // Mehrere Executions mit unterschiedlichen Strategies
 object Execution {
   val actors = mutable.Buffer[Actor]()
