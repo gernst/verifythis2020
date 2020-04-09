@@ -51,3 +51,17 @@
  History per Hand aufschreiben
   -> 1 gültige History und 1 ungültige
   -> Manuell laufen lassen.
+  
+### Neue Idee zu den Aktoren: 
+
+Das Netzwerk hat zwei Aktionsmöglichkeiten: 
+
+    - Wenn es aktuell Aktoren gibt, die eine Nachricht verarbeiten können -> diese Aktoren 
+    laufen lassen
+    
+    - Wenn es aktuell keinen Aktor gibt, der eine Nachricht verarbeiten kann ->
+    Auf Basis des gegebenen Selektors: Ersten Aktor raussuchen, der noch nicht fertig ist und 
+    von selbst aktiv werden kann. 
+    (Das schließt alle Aktoren aus, die aktuell auf eine Nachricht warten,
+    aber theoretish nochmal aktiv werden können)
+    

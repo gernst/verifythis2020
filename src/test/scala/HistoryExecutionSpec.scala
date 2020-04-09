@@ -22,9 +22,6 @@ object HistoryExecutionSpec extends Properties("History execution") {
     sizedHistoryGen
   )
 
-  /**
-   *
-   */
   property("historyMatchesServerState") = forAll { gen: Gen[History] =>
     forAll(gen, serverGen) { (history, server) =>
       Sequential.execute(server, history)
@@ -40,4 +37,5 @@ object HistoryExecutionSpec extends Properties("History execution") {
 
     }
   }
+
 }
