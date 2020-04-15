@@ -29,7 +29,7 @@ object EvalResult {
 
   case class Mismatch(fromHistory: Option[(Identity, Status)],
                       fromServer: Option[Identity])
-    extends EvalResult
+      extends EvalResult
 
   case object Ok extends EvalResult
 
@@ -166,9 +166,9 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
    * This method should return all instances at which the history and the server responses differ
    * Iterate over union of fingerprints returned by server and in history
    *
-   * TODO: Account for non existent fingerprint
+   * TODO: Generalize to accept both byFingerprint and byMail
    */
-  def check(server: Spec1): Map[Fingerprint, Map[Identity, EvalResult]] = {
+  def check[T](server: Spec1, which: T => Option[Key]): Map[Fingerprint, Map[Identity, EvalResult]] = {
     val responses = (identities.keys flatMap server.byFingerprint map (
       key => (key.fingerprint, key.identities)
       )).toMap
@@ -225,7 +225,6 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
   //      .foldLeft("") { (acc: String, event: String) =>
   //        s"$acc\n$event "
   //      }
-
 
 }
 

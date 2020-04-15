@@ -30,9 +30,13 @@ case class Verify(token: Token) extends ClientMessage
 case class RequestManage(identity: Identity) extends ClientMessage
 case class Revoke(token: Token, identities: Set[Identity]) extends ClientMessage
 
-sealed trait KeyId
+sealed trait KeyId {
+  def value: String
+}
 
-sealed trait Fingerprint
+sealed trait Fingerprint {
+  def value: String
+}
 
 /**
  * Having the key as a trait might actually not be a good idea.
@@ -77,13 +81,17 @@ object Key {
 
 case class EMail(message: String, fingerprint: Fingerprint, token: Token)
 
-case class FingerprintImpl(fingerprint: String) extends Fingerprint
+case class FingerprintImpl(fingerprint: String) extends Fingerprint {
+  def value: String = fingerprint
+}
 
 object Fingerprint {
   def random: Fingerprint = FingerprintImpl(UUID.randomUUID().toString)
 }
 
-case class KeyIdImpl(id: String) extends KeyId
+case class KeyIdImpl(id: String) extends KeyId {
+  def value: String = id
+}
 
 object KeyId {
   def random: KeyId = KeyIdImpl(UUID.randomUUID().toString)

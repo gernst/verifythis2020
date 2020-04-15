@@ -11,8 +11,6 @@ object HistoryExecutionSpec extends Properties("History execution") {
   val MinHistorySize = 20
   val MaxHistorySize = 50
 
-  def anyServer(): Spec1 = new ServerOld()
-
   def sizedHistoryGen: Gen[Gen[History]] =
     for {
       size <- Gen.choose(MinHistorySize, MaxHistorySize)
@@ -22,6 +20,9 @@ object HistoryExecutionSpec extends Properties("History execution") {
     sizedHistoryGen
   )
 
+  /**
+   * Checking every history and the server after every execution spec
+   */
   property("historyMatchesServerState") = forAll { gen: Gen[History] =>
     forAll(gen, serverGen) { (history, server) =>
       Sequential.execute(server, history)
@@ -32,7 +33,6 @@ object HistoryExecutionSpec extends Properties("History execution") {
       }
 
       if (!success) println(prettyPrint(result))
-
       success
 
     }
