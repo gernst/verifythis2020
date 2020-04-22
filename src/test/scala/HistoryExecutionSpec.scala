@@ -26,14 +26,20 @@ object HistoryExecutionSpec extends Properties("History execution") {
   property("historyMatchesServerState") = forAll { gen: Gen[History] =>
     forAll(gen, serverGen) { (history, server) =>
       Sequential.execute(server, history)
-      val result = history.check(server)
+      val (fingerprintResult, mailResult) = history.check(server)
 
-      val success = result.forall {
+      val successFingerprint = mailResult.forall {
         case (_, idMap) => idMap.forall(_._2 == EvalResult.Ok)
       }
 
-      if (!success) println(prettyPrint(result))
-      success
+      val successMail = fingerprintResult.forall {
+        case (_, idMap) => idMap.forall(_._2 == EvalResult.Ok)
+      }
+
+      if (!successFingerprint) println(prettyPrint(fingerprintResult))
+      if (!successMail) println(prettyPrint(mailResult))
+
+      successFingerprint && successMail
 
     }
   }

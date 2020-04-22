@@ -5,6 +5,7 @@ import scala.collection.{immutable, mutable}
 sealed trait Event
 
 object Event {
+
   case class Revoke(ids: Set[Identity], fingerprint: Fingerprint) extends Event
 
   case class Upload(key: Key) extends Event
@@ -29,7 +30,7 @@ object EvalResult {
 
   case class Mismatch(fromHistory: Option[(Identity, Status)],
                       fromServer: Option[Identity])
-      extends EvalResult
+    extends EvalResult
 
   case object Ok extends EvalResult
 
@@ -168,23 +169,41 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
    *
    * TODO: Generalize to accept both byFingerprint and byMail
    */
-  def check[T](server: Spec1, which: T => Option[Key]): Map[Fingerprint, Map[Identity, EvalResult]] = {
-    val responses = (identities.keys flatMap server.byFingerprint map (
+  def check(server: Spec1): (Map[Fingerprint, Map[Identity, EvalResult]], Map[Fingerprint, Map[Identity, EvalResult]]) = {
+    val responsesByFingerprint = (identities.keys flatMap server.byFingerprint map (
       key => (key.fingerprint, key.identities)
       )).toMap
 
-    val historyEval = identities
-    val allKeys = historyEval.keys.toSet union responses.keys.toSet
+    val responsesByEmail = identities.values.flatMap(
+      ids => ids.flatMap(d => server.byEmail(d._1))
+    ).toSet
 
-    allKeys.foldLeft(Map.empty[Fingerprint, Map[Identity, EvalResult]]) {
+    val historyEval = identities
+    val allKeysFingerprint = historyEval.keys.toSet union responsesByFingerprint.keys.toSet
+
+    val allKeysMail = historyEval.keys.toSet union responsesByEmail.map(_.fingerprint)
+
+    val fingerprintCheck = allKeysFingerprint.foldLeft(Map.empty[Fingerprint, Map[Identity, EvalResult]]) {
       (acc, fingerprint) =>
         val historyIds = historyEval.getOrElse(fingerprint, Set.empty)
-        val serverIds = responses.getOrElse(fingerprint, Set.empty)
+        val serverIds = responsesByFingerprint.getOrElse(fingerprint, Set.empty)
 
         val checked = checkStates(serverIds, historyIds)
 
         acc + (fingerprint -> checked)
     }
+
+    val mailCheck = allKeysMail.foldLeft(Map.empty[Fingerprint, Map[Identity, EvalResult]]) {
+      (acc, fingerprint) =>
+        val historyIds = historyEval.getOrElse(fingerprint, Set.empty)
+        val serverIds = responsesByFingerprint.getOrElse(fingerprint, Set.empty)
+
+        val checked = checkStates(serverIds, historyIds)
+
+        acc + (fingerprint -> checked)
+    }
+
+    (fingerprintCheck, mailCheck)
 
   }
 
