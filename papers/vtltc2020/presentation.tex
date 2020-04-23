@@ -163,9 +163,15 @@
 \medskip\pause
 
     \begin{itemize}
-    \item Initial idea: encode and test relational semantics + communication via channels explicitly (see abstract)
-    \item Turned out too complex, now much simpler approach
+    \item[\No] Initial idea: test noninterference directly (two executions)
+    \item[\Yes] Way too complex! Now much simpler approach
     \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Central Idea}
+    Generate \emph{History} of events:
+    upload $k$, confirm $\id \mapsto k$, revoke $\id \mapsto k$
 \end{frame}
 
 \begin{frame}
