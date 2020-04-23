@@ -32,7 +32,7 @@
 \author{Gidon Ernst \and Lukas Rieger}
 \title{Information Flow Testing\\of a PGP Keyserver}
 
-\institute{LMU Munich, Germany}
+\institute[LMU Munich]{\mailto{gidon.ernst@lmu.de} \\ LMU Munich, Germany}
 
 \date{}
 
@@ -59,7 +59,7 @@
 \end{frame}
 
 \begin{frame}[fragile]
-    \frametitle{Example (I): A \green{Secure} Keyserver}
+    \frametitle{Example (1): A \green{Secure} Keyserver}
 
     \begin{columns}[b]
         \begin{column}{1.5cm}
@@ -91,7 +91,7 @@
 
 
 \begin{frame}[fragile]
-    \frametitle{Example (II): An \red{Insecure} Keyserver}
+    \frametitle{Example (2): An \red{Insecure} Keyserver}
 
     \begin{columns}[b]
         \begin{column}{1.5cm}
@@ -118,7 +118,7 @@
 \end{frame}
 
 \begin{frame}[fragile]
-    \frametitle{Example (III): An \red{Insecure} Keyserver}
+    \frametitle{Example (3): An \red{Insecure} Keyserver}
 
     \begin{columns}[b]
         \begin{column}{1.5cm}
@@ -172,6 +172,21 @@
     \frametitle{Central Idea}
     Generate \emph{History} of events:
     upload $k$, confirm $\id \mapsto k$, revoke $\id \mapsto k$
+
+    Encoding as safety properties
+
+    Related [Chudnov, Naumann; S\&P 2018] (can't support revokation though)
+
+    Related: ProVer
+
+    Related: Checking NI quickly
+\end{frame}
+
+\begin{frame}
+    \frametitle{Ongoing}
+    \begin{itemize}
+    \item Testing against Hagrid
+    \end{itemize}
 \end{frame}
 
 \begin{frame}
@@ -231,6 +246,5 @@
     \item<7->[\No]  $z = z' ~\not\Longrightarrow~ z+y = z'+y'$
     \end{itemize}
 \end{frame}
-
 
 \end{document}
