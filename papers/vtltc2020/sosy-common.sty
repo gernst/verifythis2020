@@ -1,0 +1,663 @@
+\NeedsTeXFormat{LaTeX2e}[1995/12/01]
+\ProvidesPackage{sosy-common}[2019/07/06 Common package for both papers and presentations of SoSy-Lab]
+
+\RequirePackage{etoolbox} % low-level commands for tricky macro stuff
+
+%%%%%%%%%%%%% Encoding and fonts %%%%%%%%%%
+\RequirePackage[T1]{fontenc}
+\RequirePackage[utf8]{inputenc}
+\RequirePackage{microtype}
+\pdfcompresslevel=9
+
+%%%%%%%%%%%%% General packages %%%%%%%%%%
+\RequirePackage{calc}
+\RequirePackage{expl3}
+\RequirePackage{fixltx2e}
+\RequirePackage{xspace}
+\RequirePackage{relsize} % for \smaller
+
+% Declare command \fpeval{} for floating-point computations.
+\ExplSyntaxOn
+  \cs_new_eq:NN \fpeval \fp_eval:n
+\ExplSyntaxOff
+
+%%%%%%%%%%%%% MATH %%%%%%%%%%
+\RequirePackage{amsmath}
+\RequirePackage{amssymb}
+\RequirePackage{stackrel}
+% Declare \bigtimes symbol copied from mathabx package, which should not be included together with amssymb due to incompatibilities:
+% https://tex.stackexchange.com/questions/28150/how-can-i-get-a-big-cross-to-denote-a-generalized-cartesian-product
+% https://tex.stackexchange.com/questions/4955/how-to-use-bigtimes-without-pain/4960#4960
+  \DeclareFontFamily{U}{mathx}{\hyphenchar\font45}
+  \DeclareFontShape{U}{mathx}{m}{n}{
+        <5> <6> <7> <8> <9> <10>
+        <10.95> <12> <14.4> <17.28> <20.74> <24.88>
+        mathx10
+        }{}
+  \DeclareSymbolFont{mathx}{U}{mathx}{m}{n}
+\@ifclassloaded{acmart}{
+  % acmart already defines \bigtimes
+}{
+  \DeclareMathSymbol{\bigtimes}{1}{mathx}{"91}
+}
+% End declaration of \bigtimes symbol
+
+%%%%%%%%%%%%% TEXT %%%%%%%%%%
+\RequirePackage[printonlyused,nolist]{acronym}
+\RequirePackage{cancel} % Allows to draw diagonal lines through its argument
+\RequirePackage{engord} % for simple ordinal numbers with \engordnumber{5}
+% SI-Units
+\RequirePackage[group-digits=integer, group-minimum-digits=4,
+                list-final-separator={, and }, add-integer-zero=false,
+                free-standing-units, unit-optional-argument, % easier input of numbers with units
+                binary-units,
+                detect-weight=true,detect-inline-weight=math, % for bold cells
+                per-mode=fraction, % we use fractions for units instead of negative exponents
+                ]{siunitx}
+\newcommand\calcPercent[2][]{\SI[round-mode=figures, round-precision=2, #1]{\fpeval{(#2) * 100}}{\percent}}
+\robustify{\bfseries} % for \bfseries in table cells (http://tex.stackexchange.com/a/66256)
+
+%%%%%%%%%% COLORS %%%%%%%%%%
+\PassOptionsToPackage{dvipsnames,table}{xcolor}
+\RequirePackage{xcolor}
+\newcommand\definergbcolor[2]{\definecolor{#1}{rgb}{#2}}
+\newcommand\definecmykcolor[2]{\definecolor{#1}{cmyk}{#2}
+% Blue of the 'C' in the CPAchecker logo and the background of the SoSy-Lab logo
+\definergbcolor{sosyblue}{0.34117648 0.74117649 1}
+% sosyblue-color from former sosy-beamer.sty
+%\definergbcolor{sosyblue}{0.3058823529411765 0.615686274509804 0.8392156862745098}
+% Green of the checkmark in the CPAchecker logo
+\definergbcolor{cpacheckergreen}{0 0.63529414 0}}
+% Uni Passau colors, still needed for the 'P' and the 'A' in the CPAchecker logo
+\definecmykcolor{uniorange}{0 0.5 1 0}
+\definecmykcolor{unigrey}{0.08 0 0.06 0.47}
+% Green of lmu logo
+\definergbcolor{lmugreen}{0.1843137254901961 0.5215686274509804 0.2980392156862745}
+
+% Provide a command \dcolcolor that allows chaning the color of a dcolumn cell
+% https://tex.stackexchange.com/a/42768/16684
+%\def\DC@endright{$\hfil\egroup\@dcolcolor\box\z@\box\tw@\dcolreset}
+%\def\dcolcolor#1{\gdef\@dcolcolor{\color{#1}}}
+%\def\dcolreset{\dcolcolor{black}}
+%\dcolcolor{black}
+
+
+%%%%%%%%%%%%% TABLES %%%%%%%%%%
+\RequirePackage{longtable}
+\RequirePackage{afterpage} % for placing longtables like floats
+\RequirePackage{booktabs}
+\RequirePackage{multirow}
+\RequirePackage{rotating} % for rotated cells
+% \RequirePackage{slashbox} % for table cell with diagonal line (needs extra file)
+
+%%%%%%%%%%%%% FIGURES %%%%%%%%%%
+% GnuPlot generates PDF 1.5, whereas LaTeX by default generates PDF 1.4
+% and produces a warning about the figures.
+% This increments the version of the resulting PDF to 1.5
+% such that included figures in PDF 1.5 are legal.
+\pdfminorversion=5
+
+\RequirePackage{graphicx}
+
+\RequirePackage{pgf}
+\RequirePackage{pgfplots} % for plots together with tikz
+\RequirePackage{pgfplotstable}
+\pgfplotsset{compat=1.13,
+             log ticks with fixed point, % no scientific notation in logarithmic plots
+             scaled ticks=false, % no scientific notation in plots
+             table/col sep=tab, % only tabs are column separators
+             unbounded coords=jump, % better have skips in a plot than appear to be interpolating
+             filter discard warning=false, % Don't complain about empty cells
+             }
+\SendSettingsToPgf % use siunitx formatting settings in PGF, too
+% Define new pgfmath function for the logarithm to base 10 that also works with fpu library
+\pgfmathdeclarefunction{lg10}{1}{\pgfmathparse{ln(#1)/ln(10)}}
+
+% Allows inclusion of figures from separate files
+% that can also be compiled on their own:
+\RequirePackage{standalone}
+
+%%%%%%%%%%%%% TIKZ %%%%%%%%%%
+\RequirePackage{tikz}
+\usetikzlibrary{arrows}
+\usetikzlibrary{arrows.meta}
+\usetikzlibrary{automata}
+\usetikzlibrary{calc}
+\usetikzlibrary{chains}
+\usetikzlibrary{fadings}
+\usetikzlibrary{fit}
+\usetikzlibrary{patterns}
+\usetikzlibrary{positioning}
+\usetikzlibrary{shadows}
+\usetikzlibrary{shapes}
+\usetikzlibrary{shapes.geometric}
+\usetikzlibrary{shapes.misc}
+\usetikzlibrary{backgrounds}
+\pgfdeclarelayer{foreground}
+\pgfsetlayers{background,main,foreground}
+% Marker for tikz arrows in text:
+\newcommand\tikzmark[1]{%
+  \tikz[remember picture,overlay]\node[inner ysep=0pt] (#1) {};%
+}
+% Gears in tikz:
+\newcommand{\gear}[5]{%
+\foreach \i in {1,...,#1} {%
+  [rotate=(\i-1)*360/#1]  (0:#2)  arc (0:#4:#2) {[rounded corners=1.5pt]
+             -- (#4+#5:#3)  arc (#4+#5:360/#1-#5:#3)} --  (360/#1:#2)
+}}
+% Checkmark
+\def\checkmark{\tikz\fill[scale=0.4](0,.35) -- (.25,0) -- (1,.7) -- (.25,.15) -- cycle;}
+
+% Document symbol
+% Copied from the TikZ-Manual
+  \pgfdeclareshape{document}{
+  \inheritsavedanchors[from=rectangle]
+  % this is nearly a rectangle
+  \inheritanchorborder[from=rectangle]
+  \inheritanchor[from=rectangle]{center}
+  \inheritanchor[from=rectangle]{north}
+  \inheritanchor[from=rectangle]{south}
+  \inheritanchor[from=rectangle]{west}
+  \inheritanchor[from=rectangle]{east}
+  \inheritanchor[from=rectangle]{north west}
+  \inheritanchor[from=rectangle]{north east}
+  \inheritanchor[from=rectangle]{south west}
+  \inheritanchor[from=rectangle]{south east}
+  \backgroundpath{
+  % this is new
+  % store lower right in xa/ya and upper right in xb/yb
+  \southwest \pgf@xa=\pgf@x \pgf@ya=\pgf@y
+  \northeast \pgf@xb=\pgf@x \pgf@yb=\pgf@y
+  % compute corner of ``flipped page''
+  \pgf@xc=\pgf@xb \advance\pgf@xc by-8pt
+  % this should be a parameter
+  \pgf@yc=\pgf@yb \advance\pgf@yc by-8pt
+  % construct main path
+  \pgfpathmoveto{\pgfpoint{\pgf@xa}{\pgf@ya}}
+  \pgfpathlineto{\pgfpoint{\pgf@xa}{\pgf@yb}}
+  \pgfpathlineto{\pgfpoint{\pgf@xc}{\pgf@yb}}
+  \pgfpathlineto{\pgfpoint{\pgf@xb}{\pgf@yc}}
+  \pgfpathlineto{\pgfpoint{\pgf@xb}{\pgf@ya}}
+  \pgfpathclose
+  % add little corner
+  \pgfpathmoveto{\pgfpoint{\pgf@xc}{\pgf@yb}}
+  \pgfpathlineto{\pgfpoint{\pgf@xc}{\pgf@yc}}
+  \pgfpathlineto{\pgfpoint{\pgf@xb}{\pgf@yc}}
+  \pgfpathlineto{\pgfpoint{\pgf@xc}{\pgf@yc}}
+  }
+}
+
+
+% for trees with tikz
+\usepackage{tikz-qtree}
+
+% for graphs with tikz
+\usepackage{tkz-graph}
+
+%%%%%%%%%% ALGORITHMS %%%%%%%%%%
+\RequirePackage[noend]{algorithmic}
+\RequirePackage{algorithm}
+
+\renewcommand{\algorithmicrequire}{\textbf{Input:}}
+\renewcommand{\algorithmicensure}{\textbf{Output:}}
+\renewcommand{\algorithmiccomment}[1]{\quad// #1}
+\newcommand{\VARDECL}{\item[\textbf{Variables:}]}
+
+\RequirePackage{fancyvrb}
+
+\RequirePackage{listings}
+% load a font that supports bold monospace (Courier)
+\newcommand*{\ttfamilywithbold}{\fontfamily{pcr}\selectfont}
+\newcommand*{\lstbasicfontsize}{\footnotesize} % Allow overriding our default font size of listings
+
+\lstset{
+    escapeinside={(*@}{@*)},
+}
+
+\lstdefinestyle{C}{
+    language=C,
+    morekeywords={assert},
+}
+\lstdefinestyle{XML}{
+    language=XML,
+    showstringspaces=false,
+    morecomment=[s]{!--}{--},
+    markfirstintag=true,
+    %keywordstyle=\bfseries,                          % XML tag names
+    %tagstyle=,                                       % names of attributes and </>
+    %stringstyle=,                                    % values of attributes
+    commentstyle=\normalfont\itshape\color{black!80}, % comments
+    basicstyle=\lstbasicfontsize\ttfamilywithbold,    % everything else (tag content)
+}
+\lstdefinelanguage{SMTLIB2}{
+  classoffset=0,
+  morekeywords={assert,check-sat,declare-fun,define-fun,get-model,let,set-option},
+  alsoletter={-},
+  morecomment=[l];,
+  sensitive=true,
+  }
+
+% For syntax diagrams / BNF notation
+\RequirePackage[rounded]{syntax}
+\let\oldsdlengths\sdlengths
+\renewcommand\sdlengths{\oldsdlengths\setlength{\sdfinalskip}{0pt}}
+
+% Nice frame boxes with full page width
+\RequirePackage[framemethod=tikz]{mdframed}
+\mdfdefinestyle{nomargins}{
+  innerleftmargin=0pt, innerrightmargin=0pt, innertopmargin=0pt, innerbottommargin=0pt,
+  leftmargin=0pt, rightmargin=0pt, skipabove=0pt, skipbelow=0pt,
+}
+\tikzset{
+  trailing dashes/.style={
+    dash pattern=on 0pt off 1pt on 2pt off 2pt on 2pt off 3pt on 2pt off 10pt,
+  },
+  dense trailing dashes/.style={
+    dash pattern=on 0pt off 1pt on 1pt off 2pt on 1pt off 2pt on 1pt off 10pt,
+  },
+  example page break/.style={
+    trailing dashes, % or dense trailing dashes
+    color=white,
+    line width=6pt,
+    overlay,
+  },
+}
+\mdfdefinestyle{example}{
+  % needspace=15\baselineskip, % alternative to nobreak for allowing breaks in large examples
+  % next line produces thick gray bar on left instead of thin box
+  linewidth=5pt, linecolor=black!20!white, topline=false, bottomline=false, rightline=false, innerrightmargin=0pt,
+  firstextra ={\draw[example page break] let \p1=(P), \p2=(O) in (O) -- +(0,15pt);},
+  secondextra={\draw[example page break] let \p1=(P), \p2=(O) in (\x2,\y1) -- +(0,-15pt);},
+  middleextra={\draw[example page break] let \p1=(P), \p2=(O) in (O) -- +(0,15pt);
+               \draw[example page break] let \p1=(P), \p2=(O) in (\x2,\y1) -- +(0,-15pt);},
+}
+
+
+%%%%%%%%%%%%% HYPERREF %%%%%%%%%%
+% varioref for fancy page refs, needs to come before hyperref
+\@ifclassloaded{acmart}{
+  % acmart has a conflict with varioref
+  % where it will cause compilation to freeze
+  % if there are lstlistings.
+}{
+  \RequirePackage{varioref}
+}
+
+% Hyperref should come after all other packages to fix compatibility problems.
+\RequirePackage{hyperref}
+
+\newcommand{\mailto}[1]{\href{mailto:#1}{#1}}
+
+\newcommand{\benchexecurl}{https://github.com/sosy-lab/benchexec}
+\newcommand{\cpacheckerurl}{https://cpachecker.sosy-lab.org}
+
+%%%%%%%%%%%%% COMMENTS and MARKS %%%%%%%%%%
+\RequirePackage{comment} % for commenting out blocks
+\newcommand\todo[1]{\textcolor{red}{\bfseries #1}}
+
+\newcommand{\mynote}[1]{\textsf{$\clubsuit$ #1 $\clubsuit$ }}
+
+%%%%%%%%%% UNITS %%%%%%%%%%%%%%%%%%%
+\newcommand\GB[1]{\SI{#1}{\giga\byte}}
+\newcommand\GHz[1]{\SI{#1}{\giga\hertz}}
+
+%%%%%%%%%% SYMBOLS %%%%%%%%%%%%%%%%%%%
+% Checkmark and X that match (http://tex.stackexchange.com/a/42620/16684)
+\RequirePackage{pifont}
+\newcommand{\cmark}{\ding{51}}
+\newcommand{\xmark}{\ding{55}}
+\RequirePackage{fontawesome} % Allows easy access to high quality icons
+
+%%%%%%%%% COMPETITIONS %%%%%%%%%%%%%
+\newcommand{\svcomp}{{\small SV-COMP}\xspace}
+
+%%%%%%%%%% TOOLS %%%%%%%%%%%%%%%%%%%
+\newcommand\toolnamesize\smaller
+\@ifclassloaded{svjour}{
+  \renewcommand\toolnamesize{\relscale{0.9}}
+}{
+  \@ifclassloaded{svjour3}{\let\toolnamesize\relax}{}
+}
+\newcommand\tool[1]{{{\toolnamesize\scshape #1}\xspace}}
+\newcommand\definetool[2]{\newcommand{#1}{\tool{#2}\xspace}}
+\newcommand\safedash{\protect\texorpdfstring{\protect\nobreakdash-}{-}}
+\definetool{\blast}       {Blast}
+\definetool{\cpachecker}  {CPAchecker}
+\definetool{\cbmc}        {Cbmc}
+\definetool{\cil}         {Cil}
+\definetool{\llvm}        {Llvm}
+\definetool{\tvla}        {Tvla}
+\definetool{\ocaml}       {OCaml}
+\definetool{\tvp}         {Tvp}
+\definetool{\camplp}      {CamlP4}
+\definetool{\foci}        {Foci}
+\definetool{\tcp}         {TCP}
+\definetool{\escjava}     {ESC/Java}
+\definetool{\slam}        {Slam}
+\definetool{\slab}        {Slab}
+\definetool{\jpf}         {JPF}
+\definetool{\sycmc}       {SyCMC}
+\definetool{\impact}      {Impact}
+\definetool{\wolverine}   {Wolverine}
+\definetool{\ufo}         {Ufo}
+\definetool{\java}        {Java}
+\definetool{\scratch}     {Scratch}
+\definetool{\mathsat}     {MathSAT5}
+\definetool{\princess}    {Princess}
+\definetool{\smtinterpol} {SMTInterpol}
+\definetool{\zthree}      {Z3}
+\definetool{\esbmc}       {Esbmc}
+\definetool{\pkind}       {PKind}
+\definetool{\benchexec}   {BenchExec}
+\definetool{\javasmt}     {JavaSMT}
+\definetool{\git}         {Git}
+\definetool{\key}         {KeY}
+
+\definetool{\afl}         {AFL-fuzz}
+\definetool{\twols}       {2ls}
+\definetool{\aprove}      {AProVE}
+\definetool{\cascade}     {Cascade}
+\definetool{\ceagle}      {Ceagle}
+\definetool{\ceagleabsref}{Ceagle\safedash{}Absref}
+\definetool{\civl}        {Civl}
+\definetool{\cpabam}      {CPA\safedash{}BAM}
+\definetool{\cpakind}     {CPA\safedash{}kInd}
+\definetool{\cparefsel}   {CPA\safedash{}RefSel}
+\definetool{\cpaseq}      {CPA\safedash{}Seq}
+\definetool{\cpasymex}    {CPA\safedash{}SymExec}
+\definetool{\cpawtt}      {CPA\safedash{}witness2test}
+\definetool{\crest}       {Crest}
+\definetool{\divine}      {Divine}
+\definetool{\esbmcdepthk} {Esbmc+DepthK}
+\definetool{\fairfuzz}    {FairFuzz}
+\definetool{\forest}      {Forest}
+\definetool{\forester}    {Forester}
+\definetool{\fshell}      {FShell}
+\definetool{\fshellwtt}   {FShell\safedash{}witness2test}
+\definetool{\gcc}         {GCC}
+\definetool{\gdb}         {GDB}
+\definetool{\hiprec}      {HIPrec}
+\definetool{\impara}      {Impara}
+\definetool{\klee}        {Klee}
+\definetool{\kratos}      {Kratos}
+\definetool{\lassoranker} {LassoRanker}
+\definetool{\lazycseq}    {Lazy\safedash{}CSeq}
+\definetool{\lctd}        {LCTD}
+\definetool{\llbmc}       {Llbmc}
+\definetool{\lpi}         {LPI}
+\definetool{\mapcheck}    {Map2Check}
+\definetool{\mucseq}      {MU\safedash{}CSeq}
+\definetool{\pacman}      {PAC\safedash{}MAN}
+\definetool{\pesco}       {PeSCo}
+\definetool{\predatorhp}  {PredatorHP}
+\definetool{\satabs}      {Satabs}
+\definetool{\sdv}         {SDV}
+\definetool{\seahorn}     {SeaHorn}
+\definetool{\skink}       {Skink}
+\definetool{\smack}       {Smack}
+\definetool{\symbiotic}   {Symbiotic}
+\definetool{\symdivine}   {SymDIVINE}
+\definetool{\terminator}  {Terminator}
+\definetool{\uautomizer}  {Ultimate Automizer}
+\definetool{\automizer}   {Automizer}
+\definetool{\ukojak}      {Ultimate Kojak}
+\definetool{\utaipan}     {Ultimate Taipan}
+\definetool{\ulcseq}      {UL\safedash{}CSeq}
+\definetool{\veriabs}     {VeriAbs}
+\definetool{\verifuzz}    {VeriFuzz}
+\definetool{\vvt}         {Vvt}
+\definetool{\wittotest}   {witness2test}
+
+%%%%%%%%%% NOTATIONS %%%%%%%%%%%%
+\newcommand{\kinduction}{\texorpdfstring{\textit{k}\protect\nobreakdash-induction}{k-induction}\xspace}
+\newcommand{\kInduction}{\texorpdfstring{\textit{k}\protect\nobreakdash-Induction}{k-Induction}\xspace}
+\newcommand{\pdr}{{PDR}\xspace}
+\newcommand{\CPA}{{CPA}\xspace}
+\newcommand{\cegar}{{\ac{CEGAR}}\xspace}
+\newcommand{\CFA}{{\ac{CFA}}\xspace}
+\newcommand{\ARG}{{\ac{ARG}}\xspace}
+\newcommand{\SMT}{{\ac{SMT}}\xspace}
+\newcommand{\safe}{{\scshape true}\xspace}
+\newcommand{\unsafe}{{\scshape false}\xspace}
+\newcommand{\unknown}{{\scshape unknown}\xspace}
+\newcommand{\mo}{\text{\small\scshape mo}}
+\newcommand\gt{\raisebox{0.3ex}[0pt][0pt]{\smallestfontsize\ensuremath{>}}\,}
+\newcommand{\true}{\mathit{true}}
+\newcommand{\false}{\mathit{false}}
+\newcommand{\seq}[1]{{\langle #1 \rangle}}
+\newcommand{\sem}[1]{[\![ #1 ]\!]}
+\newcommand{\setsem}[1]{\bigcup_{e \in #1} \sem{e}}
+\newcommand{\locs}{\mathit{L}}
+\newcommand{\op}{\mathit{op}}
+\newcommand{\pc}{\mathit{l}}
+\newcommand{\pcvar}{\mathit{l}}
+\newcommand{\initial}[1]{#1_0}
+\newcommand{\pci}{{\initial\pc}}
+\newcommand{\pce}{{\pc_E}}
+\newcommand{\target}[1]{#1_{e}}
+\newcommand{\pct}{{\target\pc}}
+\newcommand{\meet}{\sqcap}
+\newcommand{\cpa}{\mathbb{D}}
+
+\newcommand{\concr}{{\cal C}}
+\newcommand{\defran}{\textrm{def}}
+\newcommand{\varAssignment}{v}
+\newcommand{\cpaSymbol}{\cpa}
+\newcommand{\interpret}[2]{{#1_{/#2}}}
+\newcommand{\eval}[2]{{#1_{/#2}}}
+\renewcommand{\path}{\sigma}
+\newcommand{\cseq}{{\gamma}}
+\newcommand{\cseqintpol}{{\Gamma}}
+
+\newcommand{\conccpa}{\mathbb{C}}
+\newcommand{\loccpa}{\mathbb{L}}
+\newcommand{\argcpa}{\mathbb{A}}
+\newcommand{\locmcpa}{\mathbb{LM}}
+\newcommand{\unrollcpa}{\mathbb{R}}
+\newcommand{\boundscpa}{\mathbb{LB}}
+\newcommand{\predcpa}{\mathbb{P}}
+\newcommand{\explcpa}{\mathbb{E}}
+\newcommand{\varcpa}{\mathbb{U}}
+\newcommand{\defcpa}{\mathbb{RD}}
+\newcommand{\constcpa}{\mathbb{CO}}
+\newcommand{\aliascpa}{\mathbb{A}}
+\newcommand{\shapecpa}{\mathbb{S}}
+\newcommand{\compositecpa}{\mathbb{C}}
+\newcommand{\assumptionscpa}{\mathbb{A}}
+\newcommand{\overflowcpa}{\mathbb{O}}
+
+\newcommand{\cpap}{\text{CPA\raisebox{.2ex}{+}}\xspace}
+\newcommand{\cpapa}{\text{CPA\kern-1pt\raisebox{.2ex}{+\!+}}\xspace}
+
+\newcommand{\compcpa}{\mathcal{C}}
+\newcommand{\lattice}{\mathcal{E}}
+\newcommand{\intlat}{\mathcal{Z}}
+\newcommand{\preds}{\mathcal{P}}
+\newcommand{\p}{P}
+
+\newcommand{\Nats}{\mathbb{N}}
+\newcommand{\Bools}{\mathbb{B}}
+\newcommand{\Ints}{\mathbb{Z}}
+
+\newcommand{\less}{\sqsubseteq}
+\newcommand{\join}{\sqcup}
+\newcommand{\sep}{\mathit{sep}}
+\newcommand{\joi}{\mathit{join}}
+\newcommand{\strengthen}{\mathord{\downarrow}}
+\newcommand{\transconc}[1]{\smash{\stackrel{#1}{\rightarrow}}}
+\newcommand{\transabs}[2]{\smash{\stackrel[#2]{#1}{\rightsquigarrow}}}
+\newcommand{\mergeop}{\mathsf{merge}}
+\newcommand{\merge}{\mergeop}
+\newcommand{\stopop}{\mathsf{stop}}
+\newcommand{\wait}{\mathsf{waitlist}}
+\newcommand{\reached}{\mathsf{reached}}
+\newcommand{\result}{\mathsf{result}}
+\newcommand{\compare}{\preceq}
+\renewcommand{\implies}{\Rightarrow}
+\newcommand{\BUG}{{\scshape fa}}
+\newcommand{\flag}{\mathit{flag}}
+\newcommand{\Itp}[3]{\smash{\mbox{\scshape Itp}{(#2,#3)(#1)}}}
+
+\newcommand{\pre}{\textsf{pre}}
+
+\newcommand{\vars}{X}
+\newcommand{\ops}{Ops}
+\newcommand{\astate}{e}
+\newcommand{\astates}{E}
+\newcommand{\PREC}{\Pi}
+\newcommand{\precisions}{\Pi}
+\newcommand{\programprecisions}{\locs \to 2^\precisions}
+\newcommand{\pr}{\pi}
+\DeclareMathOperator{\prunion}{%
+%\overset{\pr}{\cup}%  Too much height
+%\substack{\pr\\[-.10em]\cup}%
+{\ooalign{\hidewidth$\pr$\hidewidth\cr$\bigcup$}}%
+}
+\newcommand{\progpr}{p}
+\newcommand{\precfn}{\precop}
+\newcommand{\precop}{\mathsf{prec}}
+\newcommand{\assumptions}{\Psi}
+\newcommand{\as}{\psi}
+\newcommand{\stopAlg}{\mathit{break}}
+\newcommand{\contAlg}{\mathit{continue}}
+
+\newcommand{\dmid}{\mid}
+\newcommand{\pto}{\mbox{$\;\longrightarrow\!\!\!\!\!\!\!\!\circ\;\;\;$}}
+%\newcommand{\pto}{\rightharpoonup}
+\newcommand{\dom}{\mathit{dom}}
+
+\newcommand\widen{\mathsf{widen}}
+%%% Symbol rather?
+\newcommand{\refines}{\preccurlyeq}
+\newcommand\refine{\mathsf{refine}}
+\newcommand\finetune{\mathit{FineTune}}
+\newcommand\extractscg{\mathit{ExtractSCG}}
+\newcommand\abstr{\mathsf{abstract}}
+\newcommand{\off}{\top\hspace{-2.77mm}\bot}
+
+\renewcommand{\hat}{\widehat}
+\@ifclassloaded{acmart}{
+  % acmart already defines these brackets
+}{
+  \newcommand{\llbracket}{{[\![}}
+  \newcommand{\rrbracket}{{]\!]}}
+}
+\newcommand{\zug}[1]{{\langle #1 \rangle}}
+
+\newcommand{\SP}[2]{{\mathsf{SP}_{#1}({#2})}}
+\newcommand{\WP}[2]{{\mathsf{wp}_{#1}({#2})}}
+\newcommand{\blk}{\mathsf{blk}}
+\newcommand{\blknever}{\mathsf{blk}^\mathit{never}}
+\newcommand{\labs}[2]{{{l^\psi}^{#1}_{\!\!#2}}}
+\newcommand{\fcover}{\mathsf{fcover}}
+\newcommand{\abs}[3]{(\ensuremath{{#1}})^{#2}_{#3}}
+\newcommand{\boolabs}[2]{\abs{#1}{#2}{\mathbb{B}}}
+\newcommand{\cartabs}[2]{\abs{#1}{#2}{\mathbb{C}}}
+\newcommand{\pf}{\varphi} % path formula
+\newcommand{\itp}{\tau} % interpolant
+\newcommand{\af}{\tau} % abstract fact
+
+\newcommand{\clv}[1]{\langle#1\rangle}
+\newcommand{\eq}[2]{\textsf{eq}.(#1).(#2)}
+\newcommand{\closfn}{\textsf{clos*}}
+\newcommand{\clos}[3]{\closfn(#1,#2,#3)}
+\newcommand{\ite}[3]{\textsf{ite}.#1.#2.#3}
+\newcommand{\Subfn}{\textsf{sub}}
+\newcommand{\Sub}[2]{\Subfn(#1,#2)}
+\newcommand{\Subp}[2]{\textsf{sub}^+(#1,#2)}
+\newcommand{\tsize}{\textit{n}}
+\newcommand{\inter}[2]{[#1..#2] }
+\newcommand{\ident}{\textit{var}}
+\newcommand{\fields}{\mathsf{F}}
+\newcommand{\field}{\textit{field}}
+\newcommand{\mayfn}{\textsf{may}}
+\newcommand{\may}[2]{\mayfn(#1,#2)}
+\newcommand{\allocated}{\textsf{Alloc}}
+\newcommand{\ra}{{\texttt{-\hspace{-.4ex}>}}}
+\newcommand{\type}{T}
+\newcommand{\alloc}{\textit{alloc}}
+\newcommand{\malloc}{\textit{malloc}}
+\newcommand{\Bland}{\displaystyle\bigwedge}
+\newcommand{\eqvarfn}{\textsf{eqvar}}
+\newcommand{\eqvar}[2]{\eqvarfn((#1),(#2))}
+\newcommand{\baseof}[1]{\textsf{base}(#1)}
+%\newcommand{\asgn}{:\!\!{\scriptstyle =}\,}
+\newcommand{\asgn}{\;\texttt{=}\;}
+\newcommand{\fieldformula}{\Phi}
+\newcommand{\Lib}{{M}}
+\newcommand{\enabledscg}{{E}} %{\widehat{M}}
+\newcommand{\struct}{\sigma}
+\newcommand{\scg}{m}
+\newcommand{\trackdef}{D}
+\newcommand{\trackdefs}{\mathcal{D}}
+\newcommand{\habs}{\Psi}
+\newcommand{\habsspec}{\widehat{\Psi}}
+\newcommand{\shapetype}{\mathbb{T}}
+\newcommand{\shapeclass}{\mathbb{S}}
+\newcommand{\shapeclasses}{\mathcal{S}}
+\newcommand{\nat}{\mathbb{N}}
+\newcommand{\predgen}[1]{P_{#1}}
+\newcommand{\predcore}{\predgen{\mathit{core}}}
+\newcommand{\predinstr}{\predgen{\mathit{instr}}}
+\newcommand{\predabs}{\predgen{\mathit{abs}}}
+\newcommand{\predpt}{\predgen{\mathit{pt}}}
+\newcommand{\predlab}{\predgen{\mathit{fd}}}
+\newcommand{\predall}{\mathcal{P}}
+\newcommand{\pred}{\mathit{assume}}
+\newcommand{\pt}[1]{\mathit{pt}_{\mathit{#1}}}
+\newcommand{\fieldp}[1]{\mathit{fd}_{#1}}
+\newcommand{\nullp}[1]{\mathit{np}_{#1}}
+\newcommand{\sm}{\textit{sm}}
+\newcommand{\equalp}{\textit{eq}}
+\newcommand{\reach}[1]{r_{#1}}
+\newcommand{\nullpreds}{\mathcal{P}}
+\newcommand{\Val}{\textit{val}}
+\newcommand{\nodes}{V}
+\newcommand{\bop}{\mathrel{\mathit{bop}}}
+\newcommand{\PF}{{\mathit{PathFormula}}}
+\newcommand{\CONS}{{\mathit{ExtractInterpolants}}}
+\newcommand{\oldCONS}{\textsf{Con}}
+\newcommand{\genCONS}{\widehat\textsf{Con}}
+\newcommand{\Atoms}{\textsf{Atoms}}
+\newcommand{\val}{\mathit{val}}
+\newcommand{\sel}{\mathsf{sel}}
+\newcommand{\upd}{\mathsf{upd}}
+\newcommand{\allocpred}{\mathsf{alloc}}
+
+\newcommand{\lval}{\textit{lvalue}}
+\newcommand{\command}{\textit{operation}}
+\newcommand{\statement}{\textit{statement}}
+\newcommand{\predicate}{\textit{predicate}}
+\newcommand{\lvexpr}{\textit{expression}}
+\newcommand{\cste}{\textit{constant}}
+\newcommand{\clean}{\textsf{Clean}}
+
+\newcommand{\depth}{\mathit{depth}}
+
+% label of 'otherwise' edge for witnesses
+\newcommand{\otherwise}{\textit{o/w}}
+% automaton state labels
+\newcommand{\qinit}{q_0}
+\newcommand{\qerr}{q_E}
+\newcommand{\qbot}{q_\bot}
+
+% k-induction
+% Symbolicized names for ki-df, ki-ki, ki-ki-df, etc.
+\newcommand{\noinject}{}
+\newcommand{\injectstatic}{$\leftarrow$}
+\newcommand\injectdynamic{{% hack for automatically centering the circle
+    \setbox0\hbox{$\longleftarrow$}%
+    \rlap{\hbox to \wd0{\hss$\,\pmb\circlearrowleft$\hss}}\box0
+}}
+
+\newcommand{\ai}{DF\noinject\xspace}
+\newcommand{\kind}{KI\noinject\xspace}
+\newcommand{\static}{KI\injectstatic{}DF\xspace}
+\newcommand{\staticOpen}{KI\injectstatic{}\xspace}
+\newcommand{\refined}{KI\injectdynamic{}}
+\newcommand{\kiki}{KI\injectdynamic{}KI\xspace}
+\newcommand{\kidf}{KI\injectdynamic{}DF\xspace}
+\newcommand{\kiai}{KI\injectdynamic{}DF\xspace}
+\newcommand{\kikiai}{KI\injectdynamic{}KI\injectdynamic{}DF\xspace}
+
+\endinput

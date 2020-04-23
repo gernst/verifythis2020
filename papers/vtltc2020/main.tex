@@ -67,7 +67,7 @@ Each channel is modeled as an unordered collections of messages of the respectiv
 These messages are distributed by glue code in an actor-based approach,
 where the association between a client and its mailbox is explicit.
 
-\textbf{Adversary:} We assume that all communication is secure, i.e., both channels are encrypted.
+\textbf{Adversary:} We assume that all communication is secure.
 The adversary has ordinary access to all operations of the server but we assume that he/she cannot guess authentication tokens.
 As a consequence, the adversary has access to all information that is supposedly public,
 unless of course the server leaks secret or unconfirmed information.

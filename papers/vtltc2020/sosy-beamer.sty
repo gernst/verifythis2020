@@ -1,0 +1,199 @@
+\ProvidesPackage{sosy-beamer}[2018/07/09 Package for presentations of SoSy-Lab]
+\RequirePackage{sosy-common}
+
+
+%%%%%%%%%% GENERAL %%%%%%%%%%
+\RequirePackage{lmodern}
+
+%%%%%%%%%% STYLE %%%%%%%%%%
+\ifcsname setbeamercolor\endcsname
+  \setbeamercolor{structure}{fg=sosyblue}
+
+  \setbeamercolor{block title}{bg=unigrey!20}
+  \setbeamercolor{block body}{bg=unigrey!20}
+
+  \setbeamertemplate{navigation symbols}{}
+  \usefonttheme[onlymath]{serif}
+
+  \setbeamertemplate{footline}{
+    \leavevmode%
+    \hbox{%
+    \begin{beamercolorbox}[wd=.333333\paperwidth,ht=0.25ex,dp=1ex,center]{author in head/foot}%
+      \color{unigrey}
+      \usebeamerfont{author in head/foot}\insertshortauthor
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.333333\paperwidth,ht=0.25ex,dp=1ex,center]{institute in head/foot}%
+      \color{unigrey}
+      \usebeamerfont{title in head/foot}\insertshortinstitute
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.333333\paperwidth,ht=0.25ex,dp=1ex,right]{frame number in head/foot}%
+      \color{unigrey}
+      \insertframenumber{} / \insertpresentationendframe\hspace*{2ex}
+    \end{beamercolorbox}}%
+   }
+
+  % Provide \insertpresentationendframe for the last frame before the appendix
+  % (similar to \inserpresentationendpage from beamer)
+  \providecommand\insertpresentationendframe\inserttotalframenumber
+  \appto\appendix{%
+    \immediate\write\@mainaux{\string\gdef\string\insertpresentationendframe{\insertframenumber}}%
+  }
+\fi
+
+%%%%%%%%%% TikZ, Beamer, and Overlays %%%%%%%%%%
+% Allows to use only=<overlay{}, alt=<overlay>{then}{else}, and temporal=<overlay>{before}{during}{after} in tikz styles
+\tikzset{
+  only/.code args={<#1>#2}{
+    \only<#1>{\pgfkeysalso{#2}}
+  },
+  alt/.code args={<#1>#2#3}{
+    \alt<#1>{\pgfkeysalso{#2}}{\pgfkeysalso{#3}}
+  },
+  temporal/.code args={<#1>#2#3#4}{%
+    \temporal<#1>{\pgfkeysalso{#2}}{\pgfkeysalso{#3}}{\pgfkeysalso{#4}}
+  },
+}
+
+\tikzset{
+    cfa node/.style={%
+        line width=1pt,
+        fill=white,
+        state,
+        font=\small,
+        inner sep=0pt,
+        minimum size=0.6cm
+    },
+    cfa edge/.style={%
+        line width=1.3pt,
+        ->
+    },
+    abstract state/.style={%
+        rounded rectangle,
+        draw,
+        line width=0.5pt,
+        fill=sosyblue!70!white,
+        font=\scriptsize,
+        minimum height=1.3em,
+        xshift=13pt
+    },
+    abstract state2/.style={%
+        rectangle,
+        draw,
+        line width=0.5pt,
+        fill=orange!50!white,
+        font=\scriptsize,
+        minimum height=1.3em,
+        xshift=0pt,
+    }
+}
+\tikzset{
+    cfa operation/.style={%
+        font=\small,
+        scale=0.9,
+        inner sep=1pt
+    },
+    assignment left/.style={%
+        cfa operation,
+        left, anchor=east
+    },
+    assignment right/.style={%
+        cfa operation,
+        right, anchor=west
+    },
+    assignment top/.style={%
+        cfa operation,
+        above, anchor=south
+    },
+    assignment top right/.style={%
+        cfa operation,
+        above, anchor=south west
+    },
+    assignment right bottom/.style={%
+        cfa operation,
+        right, anchor=north west
+    },
+    assignment left bottom/.style={%
+        cfa operation,
+        left, anchor=north east
+    },
+    assumption left/.style={%
+        cfa operation,
+        left, anchor=south east
+    },
+    assumption right/.style={%
+        cfa operation,
+        right, anchor=south west,
+    }
+}
+
+% Fix figures that "jump around" because they have different sizes on each slide
+% Just add "stop jumping" to the style of the figure.
+% This code is from https://tex.stackexchange.com/a/51638/16684
+% It calculates the bounding box of the figure on each overlay,
+% stores the maximum in the .aux file, and uses it on recompilations.
+\@ifclassloaded{beamer}{
+\newcounter{jumping}
+\resetcounteronoverlays{jumping}
+\tikzset{
+  stop jumping/.style={
+    execute at end picture={%
+      \stepcounter{jumping}%
+      \immediate\write\pgfutil@auxout{%
+        \noexpand\jump@setbb{\the\value{jumping}}{\noexpand\pgfpoint{\the\pgf@picminx}{\the\pgf@picminy}}{\noexpand\pgfpoint{\the\pgf@picmaxx}{\the\pgf@picmaxy}}
+      },
+      \csname jump@\the\value{jumping}@maxbb\endcsname
+      \path (\the\pgf@x,\the\pgf@y);
+      \csname jump@\the\value{jumping}@minbb\endcsname
+      \path (\the\pgf@x,\the\pgf@y);
+    },
+  }
+}
+\def\jump@setbb#1#2#3{%
+  \@ifundefined{jump@#1@maxbb}{%
+    \expandafter\gdef\csname jump@#1@maxbb\endcsname{#3}%
+  }{%
+    \csname jump@#1@maxbb\endcsname
+    \pgf@xa=\pgf@x
+    \pgf@ya=\pgf@y
+    #3
+    \pgfmathsetlength\pgf@x{max(\pgf@x,\pgf@xa)}%
+    \pgfmathsetlength\pgf@y{max(\pgf@y,\pgf@ya)}%
+    \expandafter\xdef\csname jump@#1@maxbb\endcsname{\noexpand\pgfpoint{\the\pgf@x}{\the\pgf@y}}%
+  }
+  \@ifundefined{jump@#1@minbb}{%
+    \expandafter\gdef\csname jump@#1@minbb\endcsname{#2}%
+  }{%
+    \csname jump@#1@minbb\endcsname
+    \pgf@xa=\pgf@x
+    \pgf@ya=\pgf@y
+    #2
+    \pgfmathsetlength\pgf@x{min(\pgf@x,\pgf@xa)}%
+    \pgfmathsetlength\pgf@y{min(\pgf@y,\pgf@ya)}%
+    \expandafter\xdef\csname jump@#1@minbb\endcsname{\noexpand\pgfpoint{\the\pgf@x}{\the\pgf@y}}%
+  }
+}
+}{}
+
+%%%%%%%%%% ALGORITHMS %%%%%%%%%%
+\lstset{language=[LaTeX]TeX,columns=flexible,%
+        commentstyle=\normalfont\itshape,%
+        morekeywords={publishers,subtitle,maketitle,part,chapter,subsection,subsubsection,paragraph,tableofcontents,singlespacing,onehalfspacing,doublespacing,setstretch,deffootnote,marginline,columnbreak,setlength,titleref,color,textcolor,colorbox,definecolor,columncolor,rowcolor,cellcolor,@addtoreset,@removefromreset,printindex,includegraphics,listoffigures,listoftables,citet,citep,citetalias,citepalias,defcitealias,nobibliography,bibentry,shortindexingon,selectlanguage,thesection,thechapter,usetheme,usecolortheme,usefonttheme,useoutertheme,useinnertheme,setbeamertemplate,addtobeamertemplate,pause,visible,invisible,alt,alert}}
+\lstdefinestyle{C}{
+    language=C,
+    basicstyle=\ttfamily\small,
+    columns=fixed,
+    morekeywords={assert},
+}
+
+%%%%%%%%%% HYPERREF %%%%%%%%%%
+\hypersetup{colorlinks=true,urlcolor=sosyblue}
+
+
+%%%%%%%%% LAYOUT COMMANDS %%%%%%%%%
+\newcommand\Wider[2][3em]{%
+\makebox[\linewidth][c]{%
+  \begin{minipage}{\dimexpr\textwidth+#1\relax}
+  \raggedright#2
+  \end{minipage}%
+  }%
+}
