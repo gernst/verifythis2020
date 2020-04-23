@@ -58,6 +58,23 @@
   \titlepage
 \end{frame}
 
+\begin{frame}
+    \frametitle{}
+    \begin{itemize}
+    \item Intro: Lukas
+    \item Ansatz + Histories: Lukas
+    \item \code{Server.scala}: Gidon
+    \item \code{History.scala}: Lukas
+        \begin{itemize}
+        \item Events
+        \item Spezifikation in \code{History.identities}
+        \item Checks in \code{check} und \code{checkStates}
+        \item ScalaCheck + Demo
+        \end{itemize}
+    \item Lessons Learned: Gidon
+    \end{itemize}
+\end{frame}
+
 \begin{frame}[fragile]
     \frametitle{Example (1): A \green{Secure} Keyserver}
 
@@ -75,7 +92,7 @@
     \pause
 \draw[->,very thick] (0,1) -- node[above]{lookup $\id_1$} (7,1);
     \pause
-\draw[<-,very thick] (0,0) -- node[above]{result $\Key{\id_1}{\blob}$ \Yes} (7,0);
+\draw[<-,very thick] (0,0) -- node[above]{result $\Key{\green{\id_1}}{\blob}$ \Yes} (7,0);
 \end{tikzpicture}
         \end{column}
 
@@ -103,7 +120,7 @@
 \draw[->,very thick] (0,3) -- node[above]{upload $k = \Key{\id_1,\id_2}{\blob}$} (7,3);
 \draw[->,very thick] (0,2) -- node[above]{confirm $\id_1 \mapsto k$} (7,2);
 \draw[->,very thick] (0,1) -- node[above]{lookup $\id_1$} (7,1);
-\draw[<-,very thick] (0,0) -- node[above]{result $\Key{\id_1,\red{\id_2}}{\blob}$ \No} (7,0);
+\draw[<-,very thick] (0,0) -- node[above]{result $\Key{\green{\id_1},\red{\id_2}}{\blob}$ \No} (7,0);
 \end{tikzpicture}
         \end{column}
 
@@ -150,13 +167,13 @@
     \item Model actual Hagrid interface (tokens, emails, \ldots) \\
         \begin{itemize}
         \item detailed enough to capture the presented example
+        \item \code{Scala} (abstract but executable)
         \end{itemize}
     \item Challenge: specify and check information flow security
         \begin{itemize}
-        \item Note: confirmation action = \emph{declassification}
-        \item Focus on property-based \emph{testing}
+        \item Note: confirmation = \emph{declassification} private $\rightsquigarrow$ public
+        \item Focus on property-based \emph{testing} (\code{ScalaCheck})
         \end{itemize}
-    \item \code{Scala} (abstract but executable)
     \item \url{https://github.com/gernst/verifythis2020}
     \end{itemize}
 
