@@ -1,0 +1,230 @@
+% This is a template for our talks
+\documentclass[12pt,english,dvipsnames]{beamer}
+
+\usepackage{sosy-beamer}
+% \usepackage[scaled=0.8]{beramono}
+\usepackage{amssymb,amsmath,mathtools}
+\usepackage{tikz}
+\usetikzlibrary{cd}
+
+\newcommand{\red}[1]{{\color{red}#1}}
+\newcommand{\blue}[1]{{\color{blue}#1}}
+\newcommand{\green}[1]{{\color{cpacheckergreen}#1}}
+\newcommand{\Yes}{\green{\cmark}}
+\newcommand{\No}{\red{\xmark}}
+
+\newcommand{\code}[1]{\text{\upshape\ttfamily#1}}
+\newcommand{\graycode}[1]{\code{\color{darkgray}#1}}
+\newcommand{\low}{\code{low}}
+\newcommand{\high}{\code{high}}
+\newcommand{\id}{\mathit{id}}
+\newcommand{\fp}{\code{fingerprint}}
+\newcommand{\blob}{\mathit{pk}}
+\newcommand{\haslabel}{\mathbin{\dblcolon}}
+\newcommand{\Key}[2]{\code{Key}(#1,\,#2)}
+
+\newcommand{\hoare}[3]{\{ #1 \}~~#2~~\{ #3 \}}
+\newcommand{\loweq}{\equiv_\low}
+
+\newcommand{\True}{\texttt{true}}
+\newcommand{\False}{\texttt{false}}
+
+\author{Gidon Ernst \and Lukas Rieger}
+\title{Information Flow Testing\\of a PGP Keyserver}
+
+\institute{LMU Munich, Germany}
+
+\date{}
+
+\titlegraphic{
+      \includegraphics[height=2.5cm]{images/gernst}
+      \qquad
+      \includegraphics[height=2.5cm]{images/gernst}
+      \qquad
+      \begin{minipage}[b]{3cm}
+        \begin{center}
+      \resizebox{!}{1cm}{\input{logos/sosy}}
+
+        \medskip
+
+      \resizebox{!}{1cm}{\input{logos/lmu}}
+        \end{center}
+      \end{minipage}
+}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example (I): A \green{Secure} Keyserver}
+
+    \begin{columns}[b]
+        \begin{column}{1.5cm}
+        \includegraphics[width=\textwidth]{images/meg.png}
+        \end{column}
+
+        \begin{column}{7cm}
+\begin{tikzpicture}
+    \pause
+\draw[->,very thick] (0,3) -- node[above]{upload $k = \Key{\id_1,\id_2}{\blob}$} (7,3);
+    \pause
+\draw[->,very thick] (0,2) -- node[above]{confirm $\id_1 \mapsto k$} (7,2);
+    \pause
+\draw[->,very thick] (0,1) -- node[above]{lookup $\id_1$} (7,1);
+    \pause
+\draw[<-,very thick] (0,0) -- node[above]{result $\Key{\id_1}{\blob}$ \Yes} (7,0);
+\end{tikzpicture}
+        \end{column}
+
+        \begin{column}{2cm}
+        \includegraphics[width=\textwidth]{images/server.png}
+        \end{column}
+    \end{columns}
+    
+    \bigskip
+    \bigskip
+    (Images: \url{https://xkcd.com/1354/})
+\end{frame}
+
+
+\begin{frame}[fragile]
+    \frametitle{Example (II): An \red{Insecure} Keyserver}
+
+    \begin{columns}[b]
+        \begin{column}{1.5cm}
+        \includegraphics[width=\textwidth]{images/meg.png}
+        \end{column}
+
+        \begin{column}{7cm}
+\begin{tikzpicture}
+\draw[->,very thick] (0,3) -- node[above]{upload $k = \Key{\id_1,\id_2}{\blob}$} (7,3);
+\draw[->,very thick] (0,2) -- node[above]{confirm $\id_1 \mapsto k$} (7,2);
+\draw[->,very thick] (0,1) -- node[above]{lookup $\id_1$} (7,1);
+\draw[<-,very thick] (0,0) -- node[above]{result $\Key{\id_1,\red{\id_2}}{\blob}$ \No} (7,0);
+\end{tikzpicture}
+        \end{column}
+
+        \begin{column}{2cm}
+        \includegraphics[width=\textwidth]{images/server.png}
+        \end{column}
+    \end{columns}
+    
+    \bigskip
+    \bigskip
+    (Images: \url{https://xkcd.com/1354/})
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example (III): An \red{Insecure} Keyserver}
+
+    \begin{columns}[b]
+        \begin{column}{1.5cm}
+        \includegraphics[width=\textwidth]{images/meg.png}
+        \end{column}
+
+        \begin{column}{7cm}
+\begin{tikzpicture}
+\draw[->,very thick] (0,3) -- node[above]{upload $k = \Key{\id_1,\id_2}{\blob}$} (7,3);
+\draw[->,very thick] (0,2) -- node[above]{confirm $\id_1 \mapsto k$} (7,2);
+\draw[->,very thick] (0,1) -- node[above]{lookup $\blue{\fp(k)}$} (7,1);
+\draw[<-,very thick] (0,0) -- node[above]{result $\Key{\id_1,\red{\id_2}}{\blob}$ \No} (7,0);
+\end{tikzpicture}
+        \end{column}
+
+        \begin{column}{2cm}
+        \includegraphics[width=\textwidth]{images/server.png}
+        \end{column}
+    \end{columns}
+    
+    \bigskip
+    \bigskip
+    (Images: \url{https://xkcd.com/1354/})
+\end{frame}
+
+\begin{frame}
+    \frametitle{Goals \& Approach}
+    \begin{itemize}
+    \item Model actual Hagrid interface (tokens, emails, \ldots) \\
+        \begin{itemize}
+        \item detailed enough to capture the presented example
+        \end{itemize}
+    \item Challenge: specify and check information flow security
+        \begin{itemize}
+        \item Note: confirmation action = \emph{declassification}
+        \item Focus on property-based \emph{testing}
+        \end{itemize}
+    \item \code{Scala} (abstract but executable)
+    \item \url{https://github.com/gernst/verifythis2020}
+    \end{itemize}
+
+\medskip\pause
+
+    \begin{itemize}
+    \item Initial idea: encode and test relational semantics + communication via channels explicitly (see abstract)
+    \item Turned out too complex, now much simpler approach
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \centering
+    Backup
+\end{frame}
+
+\appendix
+
+\begin{frame}[fragile]
+    \frametitle{Noninterference [Goguen \& Meseguer, S\&P 1982]}
+
+    Classification of data: $\low$ (public), $\high$ (secret)
+    \bigskip
+
+    Semantic criterion \emph{Noninterference}: $\high \not\rightsquigarrow \low$ \\
+
+    \bigskip
+    \pause
+    Comparison of two executions with \low-\emph{bisimulation}
+    \medskip
+
+    \begin{tikzcd}[column sep=2.5em, row sep=1.5em]
+          (s_0,h_0)  \ar[r] \ar[d,dash,red,thick,"\text{\normalsize $\loweq$}"]
+        & (s_1,h_1)  \ar[r] \ar[d,dash,red,thick,"\text{\normalsize $\loweq$}"]
+        & (s_2,h_2)  \ar[r] \ar[d,dash,red,thick,"\text{\normalsize $\loweq$}"]
+        & \cdots \\
+    % \loweq \ar[u] \ar[d] \ar[r, red, thick] & \loweq \ar[u] \ar[d] \ar[r, red, thick] & \loweq \ar[u] \ar[d] \ar[r, red, thick] &  \cdots \\
+          (s'_0,h'_0) \ar[r]
+        & (s'_1,h'_1) \ar[r]
+        & (s'_2,h'_2) \ar[r]
+        & \cdots
+    \end{tikzcd}
+
+    \medskip
+    \pause
+
+    \alert{$\to$ Public data does not depend on secrets}
+\end{frame}
+
+
+\begin{frame}[fragile]
+    \frametitle{Symbolic Reasoning about Noninterference}
+
+    \begin{align}
+        & \{ x \haslabel \low \land y \haslabel \high \} \notag \\
+        & \uncover<3->{\code{z = x + 1;}} \label{eq:1} \\
+        & \uncover<5->{\{ x \haslabel \low \land y \haslabel \high \land \green{z \haslabel \low} \}} \notag \\
+        & \uncover<6->{\code{z = z + y;}} \label{eq:2} \\
+        & \uncover<8->{\{ x \haslabel \low \land y \haslabel \high \land \red{z \haslabel \high} \}} \notag
+    \end{align}
+
+    \uncover<2->{Relational Semantics over pairs of states}
+    \begin{itemize}
+    \item<2-> $\green{\sem{x \haslabel \low}} ~\equiv~ (x = x')$ and $\red{\sem{x \haslabel \high}} ~\equiv~ \True$
+    \item<4->[\Yes] $x = x' ~\Longrightarrow~ x+1 = x'+1$
+    \item<7->[\No]  $z = z' ~\not\Longrightarrow~ z+y = z'+y'$
+    \end{itemize}
+\end{frame}
+
+
+\end{document}
