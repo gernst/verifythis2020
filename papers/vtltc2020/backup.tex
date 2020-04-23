@@ -1,0 +1,58 @@
+\begin{frame}
+    \centering
+    Backup
+\end{frame}
+
+\appendix
+
+\begin{frame}[fragile]
+    \frametitle{Noninterference [Goguen \& Meseguer, S\&P 1982]}
+
+    Classification of data: $\low$ (public), $\high$ (secret)
+    \bigskip
+
+    Semantic criterion \emph{Noninterference}: $\high \not\rightsquigarrow \low$ \\
+
+    \bigskip
+    \pause
+    Comparison of two executions with \low-\emph{bisimulation}
+    \medskip
+
+    \begin{tikzcd}[column sep=2.5em, row sep=1.5em]
+          (s_0,h_0)  \ar[r] \ar[d,dash,red,thick,"\text{\normalsize $\loweq$}"]
+        & (s_1,h_1)  \ar[r] \ar[d,dash,red,thick,"\text{\normalsize $\loweq$}"]
+        & (s_2,h_2)  \ar[r] \ar[d,dash,red,thick,"\text{\normalsize $\loweq$}"]
+        & \cdots \\
+    % \loweq \ar[u] \ar[d] \ar[r, red, thick] & \loweq \ar[u] \ar[d] \ar[r, red, thick] & \loweq \ar[u] \ar[d] \ar[r, red, thick] &  \cdots \\
+          (s'_0,h'_0) \ar[r]
+        & (s'_1,h'_1) \ar[r]
+        & (s'_2,h'_2) \ar[r]
+        & \cdots
+    \end{tikzcd}
+
+    \medskip
+    \pause
+
+    \alert{$\to$ Public data does not depend on secrets}
+\end{frame}
+
+
+\begin{frame}[fragile]
+    \frametitle{Symbolic Reasoning about Noninterference}
+
+    \begin{align}
+        & \{ x \haslabel \low \land y \haslabel \high \} \notag \\
+        & \uncover<3->{\code{z = x + 1;}} \label{eq:1} \\
+        & \uncover<5->{\{ x \haslabel \low \land y \haslabel \high \land \green{z \haslabel \low} \}} \notag \\
+        & \uncover<6->{\code{z = z + y;}} \label{eq:2} \\
+        & \uncover<8->{\{ x \haslabel \low \land y \haslabel \high \land \red{z \haslabel \high} \}} \notag
+    \end{align}
+
+    \uncover<2->{Relational Semantics over pairs of states}
+    \begin{itemize}
+    \item<2-> $\green{\sem{x \haslabel \low}} ~\equiv~ (x = x')$ and $\red{\sem{x \haslabel \high}} ~\equiv~ \True$
+    \item<4->[\Yes] $x = x' ~\Longrightarrow~ x+1 = x'+1$
+    \item<7->[\No]  $z = z' ~\not\Longrightarrow~ z+y = z'+y'$
+    \end{itemize}
+\end{frame}
+

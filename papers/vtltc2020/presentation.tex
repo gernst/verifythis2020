@@ -4,6 +4,7 @@
 \usepackage{sosy-beamer}
 % \usepackage[scaled=0.8]{beramono}
 \usepackage{amssymb,amsmath,mathtools}
+\usepackage{tabto}
 \usepackage{tikz}
 \usetikzlibrary{cd}
 
@@ -18,8 +19,9 @@
 \newcommand{\low}{\code{low}}
 \newcommand{\high}{\code{high}}
 \newcommand{\id}{\mathit{id}}
-\newcommand{\fp}{\code{fingerprint}}
+\newcommand{\fp}{\mathit{fp}}
 \newcommand{\blob}{\mathit{pk}}
+\newcommand{\fingerprint}{\code{fingerprint}}
 \newcommand{\haslabel}{\mathbin{\dblcolon}}
 \newcommand{\Key}[2]{\code{Key}(#1,\,#2)}
 
@@ -68,26 +70,27 @@
 
     \bigskip
 
-    \mailto{gidon.ernst@lmu.de} \quad \mailto{lukas.rieger@campus.lmu.de}
+    \mailto{gidon.ernst@lmu.de} \quad \mailto{lukas.rieger@campus.lmu.de} \\
+    \url{https://github.com/gernst/verifythis2020}
 \end{frame}
 
-\begin{frame}
-    \frametitle{}
-    \begin{itemize}
-    \item Intro: Lukas
-    \item Ansatz + Histories: Lukas
-    \item \code{Server.scala}: Gidon
-    \item \code{History.scala}: Lukas
-        \begin{itemize}
-        \item Events
-        \item Spezifikation in \code{History.identities}
-        \item Checks in \code{check} und \code{checkStates}
-        \item ScalaCheck + Demo
-        \end{itemize}
-    \item Ongoing: Test Hagrid: Lukas
-    \item Lessons Learned: Gidon
-    \end{itemize}
-\end{frame}
+% \begin{frame}
+%     \frametitle{}
+%     \begin{itemize}
+%     \item Intro: Lukas
+%     \item Ansatz + Histories: Lukas
+%     \item \code{Server.scala}: Gidon
+%     \item \code{History.scala}: Lukas
+%         \begin{itemize}
+%         \item Events
+%         \item Spezifikation in \code{History.identities}
+%         \item Checks in \code{check} und \code{checkStates}
+%         \item ScalaCheck + Demo
+%         \end{itemize}
+%     \item Ongoing: Test Hagrid: Lukas
+%     \item Lessons Learned: Gidon
+%     \end{itemize}
+% \end{frame}
 
 \begin{frame}[fragile]
     \frametitle{Example (1): A \green{Secure} Keyserver}
@@ -160,8 +163,8 @@
 \begin{tikzpicture}
 \draw[->,very thick] (0,3) -- node[above]{upload $k = \Key{\id_1,\id_2}{\blob}$} (7,3);
 \draw[->,very thick] (0,2) -- node[above]{confirm $\id_1 \mapsto k$} (7,2);
-\draw[->,very thick] (0,1) -- node[above]{lookup $\blue{\fp(k)}$} (7,1);
-\draw[<-,very thick] (0,0) -- node[above]{result $\Key{\id_1,\red{\id_2}}{\blob}$ \No} (7,0);
+\draw[->,very thick] (0,1) -- node[above]{lookup $\blue{\fingerprint(k)}$} (7,1);
+\draw[<-,very thick] (0,0) -- node[above]{result $\Key{\green{\id_1},\red{\id_2}}{\blob}$ \No} (7,0);
 \end{tikzpicture}
         \end{column}
 
@@ -181,14 +184,14 @@
     \item Model actual Hagrid interface (tokens, emails, \ldots) \\
         \begin{itemize}
         \item detailed enough to capture the presented example
-        \item \code{Scala} (abstract but executable)
+        \item models in \code{Scala} (abstract but executable)
         \end{itemize}
     \item Challenge: specify and check information flow security
         \begin{itemize}
-        \item Note: confirmation = \emph{declassification} private $\rightsquigarrow$ public
-        \item Focus on property-based \emph{testing} (\code{ScalaCheck})
+        \item confirmation: \tabto{2.3cm} \emph{declassification}  \tabto{5.0cm} private $\rightsquigarrow$ public
+        \item revocation:   \tabto{2.3cm} \emph{re-classification} \tabto{5.0cm} public  $\rightsquigarrow$ private
         \end{itemize}
-    \item \url{https://github.com/gernst/verifythis2020}
+    \item Focus on property-based \emph{testing} (\code{ScalaCheck})
     \end{itemize}
 
 \medskip\pause
@@ -199,82 +202,58 @@
     \end{itemize}
 \end{frame}
 
-\begin{frame}
-    \frametitle{Central Idea}
-    Generate \emph{History} of events:
-    upload $k$, confirm $\id \mapsto k$, revoke $\id \mapsto k$
+\begin{frame}[fragile]
+    \frametitle{Central Ideas}
 
-    Encoding as safety properties
-
-    Related [Chudnov, Naumann; S\&P 2018] (can't support revokation though)
-
-    Related: ProVer
-
-    Related: Checking NI quickly
-\end{frame}
-
-\begin{frame}
-    \frametitle{Ongoing}
+    Track finite \emph{histories} of events
     \begin{itemize}
-    \item Testing against Hagrid
+    \item upload  \tabto{1.5cm} $k$
+    \item confirm \tabto{1.5cm} $\id \mapsto \fingerprint(k)$
+    \item revoke  \tabto{1.5cm} $\id \mapsto \fingerprint(k)$
+    \end{itemize}
+    $\to$ sufficient to specify which associations are \green{valid} at a time
+    \bigskip\pause
+
+    Stateful ``user''-actor executes a given history on server model
+    \begin{itemize}
+    \item keeps track of own key, identities, tokens
+    \item keys and identities drawn randomly from some \blue{fixed sets}
+    \end{itemize}
+    \bigskip\pause
+    
+    ``Adversary'' calls server operations \code{byFingerprint}/\code{byEmail}
+    \begin{itemize}
+    \item compare results to \green{valid} associations
+    \item for all \blue{possible} identities/keys
     \end{itemize}
 \end{frame}
 
 \begin{frame}
-    \centering
-    Backup
-\end{frame}
-
-\appendix
-
-\begin{frame}[fragile]
-    \frametitle{Noninterference [Goguen \& Meseguer, S\&P 1982]}
-
-    Classification of data: $\low$ (public), $\high$ (secret)
-    \bigskip
-
-    Semantic criterion \emph{Noninterference}: $\high \not\rightsquigarrow \low$ \\
-
-    \bigskip
-    \pause
-    Comparison of two executions with \low-\emph{bisimulation}
-    \medskip
-
-    \begin{tikzcd}[column sep=2.5em, row sep=1.5em]
-          (s_0,h_0)  \ar[r] \ar[d,dash,red,thick,"\text{\normalsize $\loweq$}"]
-        & (s_1,h_1)  \ar[r] \ar[d,dash,red,thick,"\text{\normalsize $\loweq$}"]
-        & (s_2,h_2)  \ar[r] \ar[d,dash,red,thick,"\text{\normalsize $\loweq$}"]
-        & \cdots \\
-    % \loweq \ar[u] \ar[d] \ar[r, red, thick] & \loweq \ar[u] \ar[d] \ar[r, red, thick] & \loweq \ar[u] \ar[d] \ar[r, red, thick] &  \cdots \\
-          (s'_0,h'_0) \ar[r]
-        & (s'_1,h'_1) \ar[r]
-        & (s'_2,h'_2) \ar[r]
-        & \cdots
-    \end{tikzcd}
-
-    \medskip
-    \pause
-
-    \alert{$\to$ Public data does not depend on secrets}
-\end{frame}
-
-
-\begin{frame}[fragile]
-    \frametitle{Symbolic Reasoning about Noninterference}
-
-    \begin{align}
-        & \{ x \haslabel \low \land y \haslabel \high \} \notag \\
-        & \uncover<3->{\code{z = x + 1;}} \label{eq:1} \\
-        & \uncover<5->{\{ x \haslabel \low \land y \haslabel \high \land \green{z \haslabel \low} \}} \notag \\
-        & \uncover<6->{\code{z = z + y;}} \label{eq:2} \\
-        & \uncover<8->{\{ x \haslabel \low \land y \haslabel \high \land \red{z \haslabel \high} \}} \notag
-    \end{align}
-
-    \uncover<2->{Relational Semantics over pairs of states}
+    \frametitle{Perspectives}
+    Achieved so far
     \begin{itemize}
-    \item<2-> $\green{\sem{x \haslabel \low}} ~\equiv~ (x = x')$ and $\red{\sem{x \haslabel \high}} ~\equiv~ \True$
-    \item<4->[\Yes] $x = x' ~\Longrightarrow~ x+1 = x'+1$
-    \item<7->[\No]  $z = z' ~\not\Longrightarrow~ z+y = z'+y'$
+    \item Faithful executable model of Hagrid
+    \item Property-directed security testing approach
+    \item Random generators via \code{ScalaCheck}
+    \end{itemize}
+    \bigskip\pause
+
+    Ongoing Work: Test Hagrid
+    \begin{itemize}
+    \item functional equivalence to model
+    \item information flow security (directly)
+    \end{itemize}
+    Engineering effort: HTTP API, PGP keys, catch e-mails
+\end{frame}
+
+\begin{frame}
+    \frametitle{Related Work}
+    \begin{itemize}
+    \item Model Checking Security Protocols (not on code)
+    \item Testing noninterference quickly \\
+          ~[Hriţcu et al; ICFP 2013] (instrumented execution)
+    \item Semantic foundations based on attacker knowledge \\
+          ~[Chudnov, Naumann; S\&P 2018] (no revocation)
     \end{itemize}
 \end{frame}
 
