@@ -20,7 +20,6 @@ object Sequential {
             uploadToken <- uploaded.get(fingerprint)
             Body(_, token, _) <- server requestVerify(uploadToken, identities)
           } server verify token
-        case Event.Check =>
       }
     }
   }

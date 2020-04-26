@@ -13,6 +13,12 @@ import org.bouncycastle.openpgp.operator.bc.{BcPBESecretKeyEncryptorBuilder, BcP
 import org.bouncycastle.openpgp.{PGPKeyRingGenerator, PGPSignature, PGPSignatureSubpacketGenerator}
 import pgp.Identity
 
+// export PATH=/path/to/fake/sendmail/bin
+// #!/bin/bash
+// cat > email.txt
+// echo "$@" >> email-log.txt
+// cat >> email-log.txt
+// echo >> email-log.txt
 
 object KeyGenerator {
 
@@ -27,7 +33,6 @@ object KeyGenerator {
     publicKeyRing.encode(armored)
 
     output.close()
-
 
     new String(output.toByteArray)
   }

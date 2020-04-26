@@ -12,7 +12,6 @@ object Event {
 
   case class Verify(ids: Set[Identity], fingerprint: Fingerprint) extends Event
 
-  case object Check extends Event
 
 }
 
@@ -36,39 +35,9 @@ object EvalResult {
 
 }
 
-object History {
-
-  implicit class Pretty[K, V](val map: Map[K, V]) {
-    def prettyPrint: Pretty[K, V] = this
-
-    override def toString: String =
-      "Map (\n" + toStringLines.mkString("\n") + "\n)"
-
-    def toStringLines: immutable.Iterable[String] =
-      map
-        .flatMap { case (k, v) => keyValueToString(k, v) }
-        .map(indentLine)
-
-    def keyValueToString(key: K, value: V): Iterable[String] = {
-      value match {
-        case v: Map[_, _] =>
-          Iterable(key + " -> Map (") ++ v.prettyPrint.toStringLines ++ Iterable(
-            ")"
-          )
-        case x => Iterable(key + " -> " + x.toString)
-      }
-    }
-
-    def indentLine(line: String): String = "\t" + line
-  }
-
-  def prettyPrint(
-                   checked: Map[Fingerprint, Map[Identity, EvalResult]]
-                 ): String = checked.prettyPrint.toString
-}
 
 case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
-  type IdState = (Identity, Status)
+
 
   def +(event: Event): Unit = {
     events append event
@@ -85,9 +54,9 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
    * symbolic execution of the given history. Entries are marked with a Status that describes, whether the identity is
    * public/private or has been revoked
    */
-  def identities: Map[Fingerprint, Set[IdState]] = {
+  def identities: Map[Fingerprint, Set[(Identity, Status)]] = {
 
-    val result: mutable.Map[Fingerprint, Set[IdState]] = mutable.Map()
+    val result: mutable.Map[Fingerprint, Set[(Identity, Status)]] = mutable.Map()
 
     val (uploaded, confirmed, revoked) = events.foldLeft(
       (
@@ -145,23 +114,6 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
     withUploadedAndConfirmedAndRevoked
   }
 
-  /**
-   * Turn a high level history into a Seq of actors. The execution of this Seq is expected to result in the same effects
-   * as the history.
-   */
-  def toActors(history: History,
-               client: Client,
-               server: ServerActor): Seq[Actor] = history.events flatMap {
-    case Event.Upload(key: Key) => Seq(new UploadActor(client, key, server))
-    case Event.Revoke(ids: Set[Identity], fingerprint: Fingerprint) =>
-      Seq(new PassiveActor {
-        override def handle(from: Actor, msg: Message): Unit = {}
-
-        override def handle(from: Actor, msg: Body): Unit = {}
-      })
-    case Event.Verify(ids: Set[Identity], _) =>
-      ids map (new VerifyActor(client, _, server))
-  }
 
   /**
    * This method should return all instances at which the history and the server responses differ
@@ -237,26 +189,59 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
 
   }
 
-  override def toString: String = s"History(${events.size})"
 
-  //  events
-  //      .map(e => s"${e.getClass.getName} -> $e")
-  //      .foldLeft("") { (acc: String, event: String) =>
-  //        s"$acc\n$event "
-  //      }
+  /**
+   * Turn a high level history into a Seq of actors. The execution of this Seq is expected to result in the same effects
+   * as the history.
+   */
+  def toActors(history: History,
+               client: Client,
+               server: ServerActor): Seq[Actor] = history.events flatMap {
+    case Event.Upload(key: Key) => Seq(new UploadActor(client, key, server))
+    case Event.Revoke(ids: Set[Identity], fingerprint: Fingerprint) =>
+      Seq(new PassiveActor {
+        override def handle(from: Actor, msg: Message): Unit = {}
+
+        override def handle(from: Actor, msg: Body): Unit = {}
+      })
+    case Event.Verify(ids: Set[Identity], _) =>
+      ids map (new VerifyActor(client, _, server))
+  }
+
+  override def toString: String = s"History(${events.size})"
 
 }
 
-/**
- * Map(
- * FingerprintImpl(612d6529-43c7-49d5-869f-62724dc2bb07) ->
- * Map(
- * Identity(ilyaz@comcast.net) -> Mismatch(Some((Identity(ilyaz@comcast.net),Private)),Some(Identity(ilyaz@comcast.net))),
- * Identity(majordick@me.com) -> Ok),
- * FingerprintImpl(faf9794a-4429-499b-9c4b-4019f77531b9) ->
- * Map(
- * Identity(tezbo@att.net) -> Mismatch(Some((Identity(tezbo@att.net),Private)),Some(Identity(tezbo@att.net))),
- * Identity(rupak@mac.com) -> Ok))
- *
- *
- */
+
+object History {
+
+  implicit class Pretty[K, V](val map: Map[K, V]) {
+    def prettyPrint: Pretty[K, V] = this
+
+    override def toString: String =
+      "Map (\n" + toStringLines.mkString("\n") + "\n)"
+
+    def toStringLines: immutable.Iterable[String] =
+      map
+        .flatMap { case (k, v) => keyValueToString(k, v) }
+        .map(indentLine)
+
+    def keyValueToString(key: K, value: V): Iterable[String] = {
+      value match {
+        case v: Map[_, _] =>
+          Iterable(key + " -> Map (") ++ v.prettyPrint.toStringLines ++ Iterable(
+            ")"
+          )
+        case x => Iterable(key + " -> " + x.toString)
+      }
+    }
+
+    def indentLine(line: String): String = "\t" + line
+  }
+
+  def prettyPrint(
+                   checked: Map[Fingerprint, Map[Identity, EvalResult]]
+                 ): String = checked.prettyPrint.toString
+}
+
+

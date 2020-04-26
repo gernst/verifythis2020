@@ -4,7 +4,6 @@ import pgp._
 
 object HistoryExecutionSpec extends Properties("History execution") {
 
-  import Generators.serverGen
   import History.prettyPrint
   import HistoryGen.randomHistory
 
@@ -20,11 +19,9 @@ object HistoryExecutionSpec extends Properties("History execution") {
     sizedHistoryGen
   )
 
-  /**
-   * Checking every history and the server after every execution spec
-   */
-  property("historyMatchesServerState") = forAll { gen: Gen[History] =>
-    forAll(gen, serverGen) { (history, server) =>
+  property("historyWithSecureServer") = forAll { gen: Gen[History] =>
+    forAll(gen) { history =>
+      val server = new Server
       Sequential.execute(server, history)
       val (fingerprintResult, mailResult) = history.check(server)
 
@@ -43,5 +40,28 @@ object HistoryExecutionSpec extends Properties("History execution") {
 
     }
   }
+
+  property("historyWithInsecureServer") = forAll { gen: Gen[History] =>
+    forAll(gen) { history =>
+      val server = new ServerOld
+      Sequential.execute(server, history)
+      val (fingerprintResult, mailResult) = history.check(server)
+
+      val successFingerprint = mailResult.forall {
+        case (_, idMap) => idMap.forall(_._2 == EvalResult.Ok)
+      }
+
+      val successMail = fingerprintResult.forall {
+        case (_, idMap) => idMap.forall(_._2 == EvalResult.Ok)
+      }
+
+      if (!successFingerprint) println(prettyPrint(fingerprintResult))
+      if (!successMail) println(prettyPrint(mailResult))
+
+      successFingerprint && successMail
+
+    }
+  }
+
 
 }

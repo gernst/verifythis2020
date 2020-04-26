@@ -11,7 +11,6 @@ import sttp.model.Uri
 
 
 case class UploadResponse(token: Token, key_fpr: Fingerprint, status: Map[String, String])
-
 case class VerifyRequest(token: Token, addresses: List[PgpIdentity])
 
 
@@ -34,7 +33,6 @@ object PgpDerivations {
   implicit val uploadDecoder: Decoder[UploadResponse] = deriveDecoder[UploadResponse]
   implicit val keyBodyEncoder: BodySerializer[Key] = ???
 
-
 }
 
 
@@ -46,7 +44,6 @@ object HagridServer {
     val url = s"$baseURL$location"
     uri"url"
   }
-
 
   implicit val backend: SttpBackend[client.Identity, Nothing, NothingT] =
     HttpURLConnectionBackend()

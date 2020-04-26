@@ -10,6 +10,7 @@ object Generators {
 
   val serverActorGen: Gen[ServerActor] = Gen.oneOf(servers)
 
+
   val serverGen: Gen[Spec1] = for {
     rand <- arbitrary[Boolean]
     spec = if (rand) new Server else new ServerOld

@@ -39,6 +39,7 @@ class UploadActor(client: Client, key: Key, server: ServerActor) extends Actor {
 
   def handle(from: Actor, msg: Message): Unit = msg match {
     case Uploaded(token) => client.uploaded += (token -> key)
+    case _ =>
   }
 
   def handle(from: Actor, msg: Body): Unit = {}
@@ -60,6 +61,7 @@ class ByMailActor(client: Client, id: Identity, server: ServerActor)
       for (key <- optKey) {
         client.received += (key.fingerprint -> key)
       }
+    case _ =>
   }
 
   def handle(from: Actor, msg: Body): Unit = {}
