@@ -115,7 +115,6 @@ object Identity {
       "crusader@sbcglobal.net",
       "tezbo@att.net",
       "mailarc@yahoo.com",
-      "majordick@me.com",
       "jaffe@aol.com",
       "mschilli@live.com",
       "whimsy@yahoo.com",

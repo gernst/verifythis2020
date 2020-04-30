@@ -1,3 +1,5 @@
+scalaVersion := "2.12.1"
+
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.14.1"
 libraryDependencies += "com.softwaremill.sttp.client" %% "core" % "2.0.7"
 libraryDependencies += "org.bouncycastle" % "bcprov-jdk15on" % "1.65"
