@@ -91,6 +91,7 @@ class HagridServer extends Spec1 {
       .flatten
 
   override def byKeyId(keyId: KeyId): Iterable[Key] =
+
     basicRequest
       .get(hag(s"/vks/v1/by-fingerprint/${keyId.value}"))
       .response(asJson[Iterable[Key]])
