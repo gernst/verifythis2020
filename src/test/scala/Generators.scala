@@ -22,7 +22,10 @@ object Generators {
   def identitySetGen(size: Int): Gen[Set[Identity]] =
     for (identities <- Gen.listOfN(size, identityGen)) yield identities.toSet
 
-  def keyGen(idSize: Int): Gen[Key] =
+  implicit def keyGen(idSize: Int): Gen[Key] =
     for (id <- identitySetGen(idSize)) yield Key.random(id)
+
+  implicit def keyGenActual(idSize: Int): Gen[Key] =
+    for (id <- identitySetGen(idSize)) yield Key.pgp(id)
 
 }

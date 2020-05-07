@@ -19,7 +19,7 @@ object HistoryGen {
       events <- Gen.lzy(historyRec)
     } yield History(events)
 
-  def randomHistory(length: Int): Gen[History] =
+  def randomHistory(length: Int)(implicit keyGen: (Int) => Gen[Key]): Gen[History] =
     for {
       context <- contextGen(2, 2)
       events <- Gen.listOfN(length, eventGen(context))
@@ -33,9 +33,9 @@ object HistoryGen {
    * @param idsPerKey How many identities per key
    * @return Context
    */
-  def contextGen(keySize: Int, idsPerKey: Int): Gen[Context] =
+  def contextGen(keySize: Int, idsPerKey: Int)(implicit keyGen: Int => Gen[Key]): Gen[Context] =
     for {
-      keys <- Gen.listOfN(keySize, Generators.keyGen(idsPerKey))
+      keys <- Gen.listOfN(keySize, keyGen(keySize))
       keyMap = (keys map (k => (k.fingerprint, k))).toMap
     } yield new Context(keyMap)
 

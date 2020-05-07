@@ -1,11 +1,16 @@
 package pgp
 
+import java.nio.ByteBuffer
 import java.util.UUID
+
+import pgp.hagrid.KeyGenerator
 
 case class Body(fingerprint: Fingerprint, token: Token, identity: Identity)
 
 sealed trait Data
+
 case class Mail(from: Actor, to: Identity, body: Body) extends Data
+
 case class Packet(from: Actor, to: Actor, msg: Message) extends Data
 
 sealed trait Message
@@ -77,6 +82,16 @@ object Key {
       fingerprint = Fingerprint.random,
       identities = ids
     )
+
+  def pgp(ids: Set[Identity]): Key = {
+    val pgpKey = KeyGenerator.genPublicKey(ids)
+
+    PGPKey(
+      keyId = KeyIdImpl(pgpKey.getKeyID.toString),
+      fingerprint = FingerprintImpl(ByteBuffer.wrap(pgpKey.getFingerprint).getLong.toString),
+      identities = ids
+    )
+  }
 }
 
 case class EMail(message: String, fingerprint: Fingerprint, token: Token)
