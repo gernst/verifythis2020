@@ -151,7 +151,7 @@ class ServerOld extends Spec1 {
    *
    * Note that this should be rate-limited.
    */
-  def requestManage(identity: Identity) = {
+  def requestManage(identity: Identity): Option[EMail] = {
     if (confirmed contains identity) {
       val token = Token.unique
       val fingerprint = confirmed(identity)
