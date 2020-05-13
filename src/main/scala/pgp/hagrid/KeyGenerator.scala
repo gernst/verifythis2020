@@ -1,11 +1,12 @@
 package pgp.hagrid
 
+import java.io.ByteArrayOutputStream
 import java.math.BigInteger
 import java.security.SecureRandom
 import java.util.Date
 
 import org.bouncycastle.bcpg.sig.{Features, KeyFlags}
-import org.bouncycastle.bcpg.{HashAlgorithmTags, PublicKeyAlgorithmTags, SymmetricKeyAlgorithmTags}
+import org.bouncycastle.bcpg.{ArmoredOutputStream, HashAlgorithmTags, PublicKeyAlgorithmTags, SymmetricKeyAlgorithmTags}
 import org.bouncycastle.crypto.generators.RSAKeyPairGenerator
 import org.bouncycastle.crypto.params.RSAKeyGenerationParameters
 import org.bouncycastle.openpgp._
@@ -27,28 +28,24 @@ object KeyGenerator {
 
   val passPhrase = "hagrid"
 
-  def genPublicKey(identities: Set[Identity]): PGPPublicKey = {
+  def genPublicKey(identities: Set[Identity]): (PGPPublicKey, String) = {
     val passPhrase = "hagrid"
     val tail = identities.tail map (_.email)
     val keyRingGenerator =
       generateKeyRingGenerator(identities.head.email, tail.toList, passPhrase)
 
-    //    val publicKeyRing = keyRingGenerator
-    //    val output = new ByteArrayOutputStream
-    //    val armored = new ArmoredOutputStream(output)
-    //
-    //    publicKeyRing.encode(armored)
-    //
-    //    output.close()
-    //    armored.close()
-    //
-    //    new String(output.toByteArray)
-
     val publicKeyRing = keyRingGenerator
+    val output = new ByteArrayOutputStream
+    val armored = new ArmoredOutputStream(output)
+
+    publicKeyRing.encode(armored)
+
+    output.close()
+    armored.close()
 
     val publicKey = keyRingGenerator.getPublicKey
 
-    publicKey
+    (publicKey, new String(output.toByteArray))
   }
 
   def generateKeyRingGenerator(identity: String,

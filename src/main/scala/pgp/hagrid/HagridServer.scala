@@ -1,5 +1,7 @@
 package pgp.hagrid
 
+import java.nio.file.{FileSystems, Path, StandardWatchEventKinds}
+
 import pgp.{Identity => PgpIdentity, _}
 import sttp.client
 import sttp.client._
@@ -16,9 +18,47 @@ case class VerifyRequest(token: Token, addresses: List[PgpIdentity])
 
 object HagridServer {
   val baseURL = "127.0.0.1:8000"
+  val mailPath: Path = ???
 
   /**
-   * Parsing this will not be fun.
+   *
+   * FOR VERIFY:
+   * Parsing this will not be fun:
+   *
+   * To: lukasrieger07@gmail.com <-- Identity to be verified / revoked
+   * Hi,
+   *
+   * Dies ist eine automatische Nachricht von localhost.
+   * Falls dies unerwartet ist, bitte die Nachricht ignorieren.
+   *
+   * OpenPGP Schlüssel: 23B2E0C54487F50AC59134C3A1EC9765D7B25C5A <---- PARSE THIS: Fingerprint
+   *
+   * Damit der Schlüssel über die Email-Adresse "lukasrieger07@gmail.com" gefunden werden kann,
+   * klicke den folgenden Link:
+   *
+   * http://localhost:8080/verify/vrTohvV8q552KMvARBE7foqkvGtUrfDl3iiyX9yqeOX <---- PARSE THIS: Token
+   *
+   * Weiter Informationen findest du unter http://localhost:8080/about
+   *
+   * --
+   *
+   * FOR REVOKE:
+   *
+   * To: lukasrieger07@gmail.com
+   * Hi,
+   *
+   * Dies ist eine automatische Nachricht von localhost.
+   * Falls dies unerwartet ist, bitte die Nachricht ignorieren.
+   *
+   * OpenPGP Schlüssel: 23B2E0C54487F50AC59134C3A1EC9765D7B25C5A
+   *
+   * Du kannst die Identitäten dieses Schlüssels unter folgendem Link verwalten:
+   *
+   * http://localhost:8080/manage/AQKKXsNS9pSBKjyFZdR7FmLZCht_N8o5EWHeehuYyBtDgpBxx2J-bUFe0Q4R9_ZFKKKgnOImmKhbhHwGkhq8LzqfqAnINTEMCAarga5k6m8gMEVIlJtFWmZ-BuSitHjmnLUcsBycd9yH
+   *
+   * Weiter Informationen findest du unter http://localhost:8080/about
+   *
+   * --
    */
   def parseMail(mail: String): Seq[Body] = ???
 
@@ -32,6 +72,7 @@ object HagridServer {
 
 }
 
+
 /**
  * For the sake of simplicity this remote server spec is synchronous and thus blocking.
  */
@@ -39,6 +80,19 @@ class HagridServer extends Spec1 {
 
   import HagridServer._
   import JsonProviders._
+
+  import scala.collection.JavaConverters._
+
+  private val mailWatcher = FileSystems.getDefault.newWatchService
+
+
+  mailPath.register(
+    mailWatcher,
+    StandardWatchEventKinds.ENTRY_CREATE,
+    StandardWatchEventKinds.ENTRY_MODIFY,
+    StandardWatchEventKinds.ENTRY_DELETE
+  )
+
 
   override def byEmail(identity: PgpIdentity): Option[Key] =
     basicRequest
@@ -80,13 +134,20 @@ class HagridServer extends Spec1 {
 
   override def requestVerify(from: Token,
                              emails: Set[PgpIdentity]): Seq[Body] = {
+
     basicRequest
       .post(hag("/vks/v1/request-verify"))
       .body(VerifyRequest(from, emails.toList))
       .send()
 
-    val source = Source.fromFile("path/to/named/pipe/maybe?")
-    parseMail(source.mkString) // might not be the right thing to do. Should test this!
+    // This blocks until the file is modified
+    val events = mailWatcher.take.pollEvents.asScala
+    val source = Source.fromFile(mailPath.toFile)
+    val bodies: Seq[Body] = parseMail(source.mkString)
+
+    source.close
+
+    bodies
   }
 
   override def verify(token: Token): Unit =
@@ -95,15 +156,25 @@ class HagridServer extends Spec1 {
       .body(token)
       .send()
 
-  override def requestManage(identity: PgpIdentity): Option[EMail] =
+  override def requestManage(identity: PgpIdentity): Option[EMail] = {
     basicRequest
       .post(hag("/manage"))
       .body(Map("search_term" -> identity.email))
-      .response(asJson[Option[EMail]])
       .send()
       .body
-      .toOption
-      .flatten
+
+    // This blocks until the file is modified
+    val events = mailWatcher.take.pollEvents.asScala
+    val source = Source.fromFile(mailPath.toFile)
+    val bodies: Seq[Body] = parseMail(source.mkString)
+
+    source.close
+
+    bodies
+      .headOption
+      .map { case Body(fingerprint, token, identity) => EMail("", fingerprint, token) }
+
+  }
 
   /**
    * This seems to be completely undocumented?

@@ -66,12 +66,14 @@ sealed trait Key {
 
 case class PGPKey(keyId: KeyId,
                   fingerprint: Fingerprint,
-                  identities: Set[Identity])
+                  identities: Set[Identity],
+                  armored: String
+                 )
   extends Key {
 
   override def restrictedTo(ids: Set[Identity]): Key = {
     assert(ids subsetOf identities)
-    PGPKey(keyId, fingerprint, ids)
+    PGPKey(keyId, fingerprint, ids, armored)
   }
 }
 
@@ -80,16 +82,18 @@ object Key {
     PGPKey(
       keyId = KeyId.random,
       fingerprint = Fingerprint.random,
-      identities = ids
+      identities = ids,
+      armored = ""
     )
 
   def pgp(ids: Set[Identity]): Key = {
-    val pgpKey = KeyGenerator.genPublicKey(ids)
+    val (pgpKey, armored) = KeyGenerator.genPublicKey(ids)
 
     PGPKey(
       keyId = KeyIdImpl(pgpKey.getKeyID.toString),
       fingerprint = FingerprintImpl(ByteBuffer.wrap(pgpKey.getFingerprint).getLong.toString),
-      identities = ids
+      identities = ids,
+      armored = armored
     )
   }
 }

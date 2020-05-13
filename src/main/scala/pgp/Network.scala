@@ -33,7 +33,7 @@ object Execution {
     val enabled = actors filter (_.canReceive)
 
     if (enabled.nonEmpty) {
-      val actor = choose(enabled, rnd)
+      val actor = choose(enabled.toSeq, rnd)
       val data = actor.inbox.dequeue()
       data match {
         case Mail(from, to, msg) =>

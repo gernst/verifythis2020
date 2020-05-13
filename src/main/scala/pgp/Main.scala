@@ -4,9 +4,11 @@ import pgp.hagrid._
 
 object Main extends App {
 
-  val identities = Identity.mails map (Identity(_)) take 10
+  val id = "lukasrieger07@gmail.com"
 
-  val x = KeyGenerator.genPublicKey(identities.toSet)
+  val identities = Identity(id)
+
+  val x = KeyGenerator.genPublicKey(Set(identities))
 
   println(x)
 

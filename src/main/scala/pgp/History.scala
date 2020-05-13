@@ -193,7 +193,7 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
    */
   def toActors(history: History,
                client: Client,
-               server: ServerActor): Seq[Actor] = history.events flatMap {
+               server: ServerActor): Seq[Actor] = (history.events flatMap {
     case Event.Upload(key: Key) => Seq(new UploadActor(client, key, server))
     case Event.Revoke(ids: Set[Identity], fingerprint: Fingerprint) =>
       Seq(new PassiveActor {
@@ -203,7 +203,7 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
       })
     case Event.Verify(ids: Set[Identity], _) =>
       ids map (new VerifyActor(client, _, server))
-  }
+  }).toSeq
 
   override def toString: String = s"History(${events.size})"
 
