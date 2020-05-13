@@ -1,44 +1,26 @@
 package pgp.hagrid
 
-
-import io.circe.generic.semiauto._
-import io.circe.{Decoder, Encoder}
 import pgp.{Identity => PgpIdentity, _}
 import sttp.client
 import sttp.client._
 import sttp.client.circe._
 import sttp.model.Uri
 
+import scala.io.Source
 
-case class UploadResponse(token: Token, key_fpr: Fingerprint, status: Map[String, String])
+case class UploadResponse(token: Token,
+                          key_fpr: Fingerprint,
+                          status: Map[String, String])
+
 case class VerifyRequest(token: Token, addresses: List[PgpIdentity])
-
-
-object PgpDerivations {
-
-  implicit val keyDecoder: Decoder[Key] = deriveDecoder[Key]
-  implicit val keyIdDecoder: Decoder[KeyId] = deriveDecoder[KeyId]
-  implicit val fingerprintDecoder: Decoder[Fingerprint] = deriveDecoder[Fingerprint]
-  implicit val identityDecoder: Decoder[PgpIdentity] = deriveDecoder[PgpIdentity]
-
-  implicit val keyEncoder: Encoder[Key] = deriveEncoder[Key]
-  implicit val keyIdEncoder: Encoder[KeyId] = deriveEncoder[KeyId]
-  implicit val fingerprintEncoder: Encoder[Fingerprint] = deriveEncoder[Fingerprint]
-  implicit val identityEncoder: Encoder[PgpIdentity] = deriveEncoder[PgpIdentity]
-
-
-  implicit val tokenEncoder: Encoder[Token] = deriveEncoder[Token]
-  implicit val tokenDecoder: Decoder[Token] = deriveDecoder[Token]
-
-  implicit val uploadDecoder: Decoder[UploadResponse] = deriveDecoder[UploadResponse]
-  implicit val keyBodyEncoder: BodySerializer[Key] = ???
-
-}
-
 
 object HagridServer {
   val baseURL = "127.0.0.1:8000"
 
+  /**
+   * Parsing this will not be fun.
+   */
+  def parseMail(mail: String): Seq[Body] = ???
 
   def hag(location: String): Uri = {
     val url = s"$baseURL$location"
@@ -56,7 +38,7 @@ object HagridServer {
 class HagridServer extends Spec1 {
 
   import HagridServer._
-  import PgpDerivations._
+  import JsonProviders._
 
   override def byEmail(identity: PgpIdentity): Option[Key] =
     basicRequest
@@ -67,7 +49,6 @@ class HagridServer extends Spec1 {
       .toOption
       .flatten
 
-
   override def byFingerprint(fingerprint: Fingerprint): Option[Key] =
     basicRequest
       .get(hag(s"/vks/v1/by-fingerprint/${fingerprint.value}"))
@@ -77,7 +58,6 @@ class HagridServer extends Spec1 {
       .toOption
       .flatten
 
-
   override def byKeyId(keyId: KeyId): Iterable[Key] =
     basicRequest
       .get(hag(s"/vks/v1/by-fingerprint/${keyId.value}"))
@@ -86,7 +66,6 @@ class HagridServer extends Spec1 {
       .body
       .toOption
       .get
-
 
   override def upload(key: Key): Token =
     basicRequest
@@ -99,27 +78,44 @@ class HagridServer extends Spec1 {
       .get
       .token
 
+  override def requestVerify(from: Token,
+                             emails: Set[PgpIdentity]): Seq[Body] = {
+    basicRequest
+      .post(hag("/vks/v1/request-verify"))
+      .body(VerifyRequest(from, emails.toList))
+      .send()
 
-  override def requestVerify(from: Token, emails: Set[PgpIdentity]): Seq[Body] = ???
+    val source = Source.fromFile("path/to/named/pipe/maybe?")
+    parseMail(source.mkString) // might not be the right thing to do. Should test this!
+  }
 
-  //    basicRequest
-  //      .post(hag("/vks/v1/request-verify"))
-  //      .body(VerifyRequest(from, emails.toList))
+  override def verify(token: Token): Unit =
+    basicRequest
+      .post(hag("/verify"))
+      .body(token)
+      .send()
 
+  override def requestManage(identity: PgpIdentity): Option[EMail] =
+    basicRequest
+      .post(hag("/manage"))
+      .body(Map("search_term" -> identity.email))
+      .response(asJson[Option[EMail]])
+      .send()
+      .body
+      .toOption
+      .flatten
 
-  override def verify(token: Token): Unit = ???
+  /**
+   * This seems to be completely undocumented?
+   * I did find a possible endpoint in the hagrid source: manage/unpublish.
+   */
+  override def revoke(token: Token, emails: Set[PgpIdentity]): Unit =
+    for (identity <- emails)
+      basicRequest
+        .post(hag("manage/unpublish"))
+        .body(
+          Map("token" -> token.uuid.toString, "address" -> identity.email) // WIP
+        )
+        .send()
 
-  override def requestManage(identity: PgpIdentity): Option[EMail] = ???
-
-  //    basicRequest
-  //      .post(hag("manage"))
-  //      .body(Map("search_term" -> identity.email))
-  //      .send()
-  //      .body
-  //      .toOption
-  //      .get
-
-  override def revoke(token: Token, emails: Set[PgpIdentity]): Unit = ???
 }
-
-

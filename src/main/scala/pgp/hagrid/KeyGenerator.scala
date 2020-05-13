@@ -1,16 +1,15 @@
 package pgp.hagrid
 
-import java.io.ByteArrayOutputStream
 import java.math.BigInteger
 import java.security.SecureRandom
 import java.util.Date
 
 import org.bouncycastle.bcpg.sig.{Features, KeyFlags}
-import org.bouncycastle.bcpg.{ArmoredOutputStream, HashAlgorithmTags, SymmetricKeyAlgorithmTags}
+import org.bouncycastle.bcpg.{HashAlgorithmTags, PublicKeyAlgorithmTags, SymmetricKeyAlgorithmTags}
 import org.bouncycastle.crypto.generators.RSAKeyPairGenerator
 import org.bouncycastle.crypto.params.RSAKeyGenerationParameters
-import org.bouncycastle.openpgp.operator.bc.{BcPBESecretKeyEncryptorBuilder, BcPGPContentSignerBuilder, BcPGPDigestCalculatorProvider, BcPGPKeyPair}
-import org.bouncycastle.openpgp.{PGPKeyRingGenerator, PGPSignature, PGPSignatureSubpacketGenerator}
+import org.bouncycastle.openpgp._
+import org.bouncycastle.openpgp.operator.bc._
 import pgp.Identity
 
 // export PATH=/path/to/fake/sendmail/bin
@@ -20,25 +19,41 @@ import pgp.Identity
 // cat >> email-log.txt
 // echo >> email-log.txt
 
+/**
+ * Key generation ONLY works if the selected identity size per key is <= 2!
+ * This is fine for our use case, but still unfortunate.
+ */
 object KeyGenerator {
 
-  def genPublicKey(identities: Set[Identity]): String = {
+  val passPhrase = "hagrid"
+
+  def genPublicKey(identities: Set[Identity]): PGPPublicKey = {
     val passPhrase = "hagrid"
-    val keyRingGenerator = generateKeyRingGenerator(identities.head.email, passPhrase)
+    val tail = identities.tail map (_.email)
+    val keyRingGenerator =
+      generateKeyRingGenerator(identities.head.email, tail.toList, passPhrase)
 
-    val publicKeyRing = keyRingGenerator.generatePublicKeyRing()
-    val output = new ByteArrayOutputStream
-    val armored = new ArmoredOutputStream(output)
+    //    val publicKeyRing = keyRingGenerator
+    //    val output = new ByteArrayOutputStream
+    //    val armored = new ArmoredOutputStream(output)
+    //
+    //    publicKeyRing.encode(armored)
+    //
+    //    output.close()
+    //    armored.close()
+    //
+    //    new String(output.toByteArray)
 
-    publicKeyRing.encode(armored)
+    val publicKeyRing = keyRingGenerator
 
-    output.close()
+    val publicKey = keyRingGenerator.getPublicKey
 
-    new String(output.toByteArray)
+    publicKey
   }
 
-
-  def generateKeyRingGenerator(identity: String, pass: String): PGPKeyRingGenerator = {
+  def generateKeyRingGenerator(identity: String,
+                               tail: List[String],
+                               pass: String): PGPPublicKeyRing = {
 
     val keyPairGenerator = new RSAKeyPairGenerator
 
@@ -47,15 +62,18 @@ object KeyGenerator {
         BigInteger.valueOf(0x10001),
         new SecureRandom(),
         2048,
-        12)
+        12
+      )
     )
 
     val signingMaster = new BcPGPKeyPair(
       3, // RSA_SIGN
       keyPairGenerator.generateKeyPair(),
-      new Date())
+      new Date()
+    )
 
-    val encryptionKey = new BcPGPKeyPair(2, keyPairGenerator.generateKeyPair(), new Date())
+    val encryptionKey =
+      new BcPGPKeyPair(2, keyPairGenerator.generateKeyPair(), new Date())
     val signHashGen = new PGPSignatureSubpacketGenerator
 
     signHashGen setKeyFlags(false, KeyFlags.SIGN_DATA | KeyFlags.CERTIFY_OTHER)
@@ -64,15 +82,14 @@ object KeyGenerator {
     val subPacketGen = new PGPSignatureSubpacketGenerator
     subPacketGen setKeyFlags(false, KeyFlags.ENCRYPT_COMMS | KeyFlags.ENCRYPT_STORAGE)
 
-    val sha1Calc = new BcPGPDigestCalculatorProvider().get(HashAlgorithmTags.SHA1)
-    val sha256Calc = new BcPGPDigestCalculatorProvider().get(HashAlgorithmTags.SHA256)
+    val sha1Calc =
+      new BcPGPDigestCalculatorProvider().get(HashAlgorithmTags.SHA1)
+    val sha256Calc =
+      new BcPGPDigestCalculatorProvider().get(HashAlgorithmTags.SHA256)
 
     val secretKeyEnc =
-      new BcPBESecretKeyEncryptorBuilder(
-        SymmetricKeyAlgorithmTags.AES_256,
-        sha256Calc,
-        0xc0 // magic
-      ).build(pass.toCharArray)
+      new BcPBESecretKeyEncryptorBuilder(SymmetricKeyAlgorithmTags.AES_256)
+        .build(pass.toCharArray)
 
     val keyRingGen = new PGPKeyRingGenerator(
       PGPSignature.POSITIVE_CERTIFICATION,
@@ -81,13 +98,82 @@ object KeyGenerator {
       sha1Calc,
       signHashGen.generate(),
       null,
-      new BcPGPContentSignerBuilder(signingMaster.getPublicKey.getAlgorithm, HashAlgorithmTags.SHA1),
+      new BcPGPContentSignerBuilder(
+        signingMaster.getPublicKey.getAlgorithm,
+        HashAlgorithmTags.SHA1
+      ),
       secretKeyEnc
     )
-
     keyRingGen.addSubKey(encryptionKey, subPacketGen.generate(), null)
+    val keyRing = keyRingGen.generatePublicKeyRing()
 
-    keyRingGen
+    val (privateKey, publicKey) = extractSecretKey(
+      keyRingGen.generateSecretKeyRing()
+    )
+
+    var ringGen2 = keyRingGen
+
+    val finalRing = tail.foldLeft(keyRing) { (ring, id) =>
+      val (key, gen) = genSubKeyForIdentity(subPacketGen, ringGen2, id)
+      ringGen2 = gen
+
+      PGPPublicKeyRing.insertPublicKey(ring, key)
+    }
+
+    finalRing
+  }
+
+  def extractSecretKey(
+                        keyRing: PGPSecretKeyRing
+                      ): (PGPPrivateKey, PGPPublicKey) = {
+    val pgpSecretKey = keyRing.getSecretKey
+    val digestCalculator = new BcPGPDigestCalculatorProvider
+    val decryptor = new BcPBESecretKeyDecryptorBuilder(digestCalculator)
+
+    val privateKey =
+      pgpSecretKey.extractPrivateKey(decryptor.build(passPhrase.toCharArray))
+    val publicKey = pgpSecretKey.getPublicKey
+
+    (privateKey, publicKey)
+  }
+
+  def genSubKeyForIdentity(
+                            subpacketGenerator: PGPSignatureSubpacketGenerator,
+                            keyRingGen: PGPKeyRingGenerator,
+                            identity: String
+                          ): (PGPPublicKey, PGPKeyRingGenerator) = {
+    val signatureGenerator = new PGPSignatureGenerator(
+      new BcPGPContentSignerBuilder(
+        PublicKeyAlgorithmTags.RSA_SIGN,
+        HashAlgorithmTags.SHA1
+      )
+    )
+
+    val signHashGen = new PGPSignatureSubpacketGenerator
+
+    signHashGen setKeyFlags(false, KeyFlags.SIGN_DATA | KeyFlags.CERTIFY_OTHER)
+    signHashGen setFeature(false, Features.FEATURE_MODIFICATION_DETECTION)
+
+    val keyRing = keyRingGen.generateSecretKeyRing()
+
+    val (privateKey, publicKey) = extractSecretKey(keyRing)
+
+    signatureGenerator.init(PGPSignature.POSITIVE_CERTIFICATION, privateKey)
+    signatureGenerator.setHashedSubpackets(signHashGen.generate())
+
+    val certification =
+      signatureGenerator.generateCertification(identity, publicKey)
+    val key =
+      PGPPublicKey.addCertification(publicKey, identity, certification)
+
+    keyRingGen.addSubKey(
+      new PGPKeyPair(key, privateKey),
+      subpacketGenerator.generate(),
+      null
+    )
+
+    (key, keyRingGen)
+
   }
 
 }

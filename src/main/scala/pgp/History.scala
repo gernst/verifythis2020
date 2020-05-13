@@ -12,7 +12,6 @@ object Event {
 
   case class Verify(ids: Set[Identity], fingerprint: Fingerprint) extends Event
 
-
 }
 
 sealed trait Status
@@ -118,8 +117,6 @@ case class History(events: mutable.Buffer[Event] = mutable.Buffer()) {
   /**
    * This method should return all instances at which the history and the server responses differ
    * Iterate over union of fingerprints returned by server and in history
-   *
-   * TODO: Generalize to accept both byFingerprint and byMail
    */
   def check(server: Spec1): (Map[Fingerprint, Map[Identity, EvalResult]], Map[Fingerprint, Map[Identity, EvalResult]]) = {
     val responsesByFingerprint = (identities.keys flatMap server.byFingerprint map (

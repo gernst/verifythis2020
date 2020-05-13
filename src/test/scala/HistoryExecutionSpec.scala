@@ -4,13 +4,14 @@ import pgp._
 
 object HistoryExecutionSpec extends Properties("History execution") {
 
+  import Generators.keyGen
   import History.prettyPrint
   import HistoryGen.randomHistory
 
   val MinHistorySize = 20
   val MaxHistorySize = 50
 
-  def sizedHistoryGen: Gen[Gen[History]] =
+  def sizedHistoryGen(implicit keyGen: (Int) => Gen[Key]): Gen[Gen[History]] =
     for {
       size <- Gen.choose(MinHistorySize, MaxHistorySize)
     } yield randomHistory(size)
@@ -62,6 +63,5 @@ object HistoryExecutionSpec extends Properties("History execution") {
 
     }
   }
-
 
 }
