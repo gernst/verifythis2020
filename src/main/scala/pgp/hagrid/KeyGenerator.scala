@@ -1,6 +1,6 @@
 package pgp.hagrid
 
-import java.io.ByteArrayOutputStream
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.math.BigInteger
 import java.security.SecureRandom
 import java.util.Date
@@ -11,7 +11,7 @@ import org.bouncycastle.crypto.generators.RSAKeyPairGenerator
 import org.bouncycastle.crypto.params.RSAKeyGenerationParameters
 import org.bouncycastle.openpgp._
 import org.bouncycastle.openpgp.operator.bc._
-import pgp.Identity
+import pgp._
 
 // export PATH=/path/to/fake/sendmail/bin
 // #!/bin/bash
@@ -26,7 +26,40 @@ import pgp.Identity
  */
 object KeyGenerator {
 
+  def convertBytesToHex(bytes: Array[Byte]): String = {
+    val sb = new StringBuilder
+    for (b <- bytes) {
+      sb.append(String.format("%02x", Byte.box(b)))
+    }
+    sb.toString
+  }
+
   val passPhrase = "hagrid"
+
+  def fromArmored(armored: String): Key = {
+    import scala.collection.JavaConverters._
+    val in = PGPUtil.getDecoderStream(new ByteArrayInputStream(armored.getBytes))
+    val publicKeyRingColl = new PGPPublicKeyRingCollection(in, new BcKeyFingerprintCalculator)
+    in.close()
+
+    val keyRingIter = publicKeyRingColl.getKeyRings.asScala
+
+    val publicKey = keyRingIter
+      .map(_.getPublicKey)
+      .toSeq
+      .head
+
+
+    // hexhex
+    PGPKey(
+      KeyIdImpl(publicKey.getKeyID.toHexString),
+      FingerprintImpl(convertBytesToHex(publicKey.getFingerprint).toUpperCase),
+      publicKey.getUserIDs.asScala.map(Identity(_)).toSet,
+      armored
+    )
+
+
+  }
 
   def genPublicKey(identities: Set[Identity]): (PGPPublicKey, String) = {
     val passPhrase = "hagrid"

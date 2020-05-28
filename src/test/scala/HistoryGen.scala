@@ -1,27 +1,14 @@
 import org.scalacheck.Gen
 import pgp.{Event, Fingerprint, History, Key}
 
-import scala.collection.mutable
-
 class Context(val keys: Map[Fingerprint, Key])
 
 object HistoryGen {
 
-  private def historyRec: Gen[mutable.Buffer[Event]] = ???
 
-  /**
-   * Priority: Low.
-   * This should return a "random" history, in which the contained events are in a valid order
-   * (e.g.: No Revoke/Verify before Upload)
-   */
-  def validHistory(length: Int): Gen[History] =
+  def randomHistory(length: Int)(implicit keyGen: Int => Gen[Key]): Gen[History] =
     for {
-      events <- Gen.lzy(historyRec)
-    } yield History(events)
-
-  def randomHistory(length: Int)(implicit keyGen: (Int) => Gen[Key]): Gen[History] =
-    for {
-      context <- contextGen(2, 2)
+      context <- contextGen(2, 2)(keyGen)
       events <- Gen.listOfN(length, eventGen(context))
     } yield History(events.toBuffer)
 
@@ -35,7 +22,11 @@ object HistoryGen {
    */
   def contextGen(keySize: Int, idsPerKey: Int)(implicit keyGen: Int => Gen[Key]): Gen[Context] =
     for {
-      keys <- Gen.listOfN(keySize, keyGen(keySize))
+      keys <- Gen
+        .listOfN(keySize,
+          keyGen(
+            keySize)
+        )
       keyMap = (keys map (k => (k.fingerprint, k))).toMap
     } yield new Context(keyMap)
 

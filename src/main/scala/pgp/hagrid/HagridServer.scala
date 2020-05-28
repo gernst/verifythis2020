@@ -1,7 +1,11 @@
 package pgp.hagrid
 
-import java.nio.file.{FileSystems, Path, StandardWatchEventKinds}
+import java.io.IOException
+import java.nio.file._
+import java.nio.file.attribute.BasicFileAttributes
 
+import io.circe.parser.decode
+import pgp.hagrid.JsonProviders._
 import pgp.{Identity => PgpIdentity, _}
 import sttp.client
 import sttp.client._
@@ -9,62 +13,52 @@ import sttp.client.circe._
 import sttp.model.Uri
 
 import scala.io.Source
+import scala.util.matching.Regex
 
-case class UploadResponse(token: Token,
-                          key_fpr: Fingerprint,
+
+case class UploadBody(keytext: String)
+
+case class UploadResponse(token: String,
+                          key_fpr: String,
                           status: Map[String, String])
 
-case class VerifyRequest(token: Token, addresses: List[PgpIdentity])
+case class VerifyRequest(token: String, addresses: List[String])
+
+case class HagridEnvelope(
+                           forward_path: Array[String],
+                           reverse_path: String
+                         )
+
+case class HagridMail(
+                       envelope: HagridEnvelope,
+                       message_id: String,
+                       message: Array[Byte]
+                     )
 
 object HagridServer {
-  val baseURL = "127.0.0.1:8000"
-  val mailPath: Path = ???
 
-  /**
-   *
-   * FOR VERIFY:
-   * Parsing this will not be fun:
-   *
-   * To: lukasrieger07@gmail.com <-- Identity to be verified / revoked
-   * Hi,
-   *
-   * Dies ist eine automatische Nachricht von localhost.
-   * Falls dies unerwartet ist, bitte die Nachricht ignorieren.
-   *
-   * OpenPGP Schlüssel: 23B2E0C54487F50AC59134C3A1EC9765D7B25C5A <---- PARSE THIS: Fingerprint
-   *
-   * Damit der Schlüssel über die Email-Adresse "lukasrieger07@gmail.com" gefunden werden kann,
-   * klicke den folgenden Link:
-   *
-   * http://localhost:8080/verify/vrTohvV8q552KMvARBE7foqkvGtUrfDl3iiyX9yqeOX <---- PARSE THIS: Token
-   *
-   * Weiter Informationen findest du unter http://localhost:8080/about
-   *
-   * --
-   *
-   * FOR REVOKE:
-   *
-   * To: lukasrieger07@gmail.com
-   * Hi,
-   *
-   * Dies ist eine automatische Nachricht von localhost.
-   * Falls dies unerwartet ist, bitte die Nachricht ignorieren.
-   *
-   * OpenPGP Schlüssel: 23B2E0C54487F50AC59134C3A1EC9765D7B25C5A
-   *
-   * Du kannst die Identitäten dieses Schlüssels unter folgendem Link verwalten:
-   *
-   * http://localhost:8080/manage/AQKKXsNS9pSBKjyFZdR7FmLZCht_N8o5EWHeehuYyBtDgpBxx2J-bUFe0Q4R9_ZFKKKgnOImmKhbhHwGkhq8LzqfqAnINTEMCAarga5k6m8gMEVIlJtFWmZ-BuSitHjmnLUcsBycd9yH
-   *
-   * Weiter Informationen findest du unter http://localhost:8080/about
-   *
-   * --
-   */
-  def parseMail(mail: String): Seq[Body] = ???
+  private val mailWatcher = FileSystems.getDefault.newWatchService
+
+  val baseURL = "http://0.0.0.0:8080"
+  val mailPath: Path = Paths.get("/home/lukas/fakemail/mails/")
+  val hagridPath: Path = Paths.get("/home/lukas/hagrid/hagrid/state")
+
+  val REVOKE_PATTERN: Regex = "(?s).*To: <(\\S+)>.*OpenPGP key: (\\S+).*http://localhost:8080/manage/(\\S+).*<!doctype html>.*".r
+  val VERIFY_PATTERN: Regex = "(?s).*To: <(\\S+)>.*OpenPGP key: (\\S+).*http://localhost:8080/verify/(\\S+).*<!doctype html>.*".r
+
+  def parseMail(mail: String): Seq[Body] =
+    decode[HagridMail](mail)
+      .map(mail => new String(mail.message))
+      .map {
+        case REVOKE_PATTERN(identity, fingerprint, token) => Body(FingerprintImpl(fingerprint), Token(token), PgpIdentity(identity))
+        case VERIFY_PATTERN(identity, fingerprint, token) => Body(FingerprintImpl(fingerprint), Token(token), PgpIdentity(identity))
+      }
+      .toSeq
+
 
   def hag(location: String): Uri = {
     val url = s"$baseURL$location"
-    uri"url"
+    uri"$url"
   }
 
   implicit val backend: SttpBackend[client.Identity, Nothing, NothingT] =
@@ -79,114 +73,183 @@ object HagridServer {
 class HagridServer extends Spec1 {
 
   import HagridServer._
-  import JsonProviders._
 
   import scala.collection.JavaConverters._
 
-  private val mailWatcher = FileSystems.getDefault.newWatchService
 
+  //remove(hagridPath)
 
   mailPath.register(
     mailWatcher,
-    StandardWatchEventKinds.ENTRY_CREATE,
-    StandardWatchEventKinds.ENTRY_MODIFY,
-    StandardWatchEventKinds.ENTRY_DELETE
+    StandardWatchEventKinds.ENTRY_CREATE
   )
 
 
-  override def byEmail(identity: PgpIdentity): Option[Key] =
-    basicRequest
+  def remove(root: Path): Unit = {
+    if (root.toFile.exists) {
+      Files.walkFileTree(root, new SimpleFileVisitor[Path] {
+        override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
+          Files.delete(file)
+          FileVisitResult.CONTINUE
+        }
+
+        override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
+          Files.delete(dir)
+          FileVisitResult.CONTINUE
+        }
+      })
+    }
+  }
+
+  /**
+   * Read the file containing the mail body, then turn it into a Body and finally delete the file.
+   * May throw an exception if the file cannot be read or deleted.
+   * Here be dragons.
+   */
+  private def consumeMail(expectedSize: Int): Seq[Body] = {
+    println(s"Waiting for modifications in path:$mailPath ")
+    // This blocks until the file is modified
+    println(s"Expected size: $expectedSize")
+    val watchKey = mailWatcher.take
+    val events = watchKey.pollEvents.asScala
+    println(events.size)
+    val updatePaths = events
+      .take(expectedSize)
+      .map(_.asInstanceOf[WatchEvent[Path]])
+      .map(_.context())
+
+    updatePaths.foreach(println(_))
+
+    val mails = updatePaths.flatMap { currentPath =>
+      val resolved = mailPath.resolve(currentPath).toFile
+
+      println(resolved)
+
+      val source = Source.fromFile(resolved)
+      val bodies: Seq[Body] = parseMail(source.mkString)
+
+      source.close
+      resolved.delete
+
+      val isValid = watchKey.reset
+
+
+      bodies
+    }
+
+    println(s"Returning ${mails.size} mails")
+
+    mails
+
+  }
+
+
+  override def byEmail(identity: PgpIdentity): Option[Key] = for {
+    body <- basicRequest
       .get(hag(s"/vks/v1/by-email/${identity.email}"))
-      .response(asJson[Option[Key]])
       .send()
       .body
       .toOption
-      .flatten
+  } yield KeyGenerator.fromArmored(body)
 
-  override def byFingerprint(fingerprint: Fingerprint): Option[Key] =
-    basicRequest
+  override def byFingerprint(fingerprint: Fingerprint): Option[Key] = for {
+    body <- basicRequest
       .get(hag(s"/vks/v1/by-fingerprint/${fingerprint.value}"))
-      .response(asJson[Option[Key]])
       .send()
       .body
       .toOption
-      .flatten
+  } yield KeyGenerator.fromArmored(body)
 
-  override def byKeyId(keyId: KeyId): Iterable[Key] =
-    basicRequest
+  override def byKeyId(keyId: KeyId): Iterable[Key] = for {
+    body <- basicRequest
       .get(hag(s"/vks/v1/by-fingerprint/${keyId.value}"))
-      .response(asJson[Iterable[Key]])
       .send()
       .body
-      .toOption
-      .get
+      .toSeq
+  } yield KeyGenerator.fromArmored(body)
 
-  override def upload(key: Key): Token =
-    basicRequest
+  override def upload(key: Key): Token = {
+    val response = basicRequest
       .post(hag("/vks/v1/upload"))
-      .body(key)
+      .body(UploadBody(key.armored))
       .response(asJson[UploadResponse])
       .send()
       .body
+
+
+    response.left.map(e => println(e.body))
+
+    Token(response
       .toOption
       .get
-      .token
+      .token)
+
+  }
+
+  def checkResponse(mails: Set[String], response: Option[String]): Boolean = response.flatMap { r =>
+    decode[UploadResponse](r)
+      .left.map(println(_))
+      .toOption
+      .map(_.status)
+      .map { states =>
+        mails.exists { m =>
+          !states.get(m).contains("published")
+        }
+      }
+  }.getOrElse(false)
 
   override def requestVerify(from: Token,
                              emails: Set[PgpIdentity]): Seq[Body] = {
 
-    basicRequest
+    if (emails.isEmpty) return Seq.empty
+
+    val response = basicRequest
       .post(hag("/vks/v1/request-verify"))
-      .body(VerifyRequest(from, emails.toList))
+      .body(VerifyRequest(from.uuid, emails.map(_.email).toList))
       .send()
+      .body
+      .toOption
 
-    // This blocks until the file is modified
-    val events = mailWatcher.take.pollEvents.asScala
-    val source = Source.fromFile(mailPath.toFile)
-    val bodies: Seq[Body] = parseMail(source.mkString)
+    val shouldReadMail = checkResponse(emails.map(_.email), response)
 
-    source.close
 
-    bodies
+    (response, shouldReadMail) match {
+      case (Some(x), true) => consumeMail(emails.size)
+      case _ => Seq.empty
+    }
   }
 
   override def verify(token: Token): Unit =
     basicRequest
-      .post(hag("/verify"))
-      .body(token)
+      .post(hag(s"/verify/${token.uuid}"))
       .send()
 
-  override def requestManage(identity: PgpIdentity): Option[EMail] = {
-    basicRequest
+  override def requestManage(identity: PgpIdentity): Option[EMail] = for {
+    _ <- basicRequest
       .post(hag("/manage"))
       .body(Map("search_term" -> identity.email))
       .send()
       .body
+      .toOption
 
-    // This blocks until the file is modified
-    val events = mailWatcher.take.pollEvents.asScala
-    val source = Source.fromFile(mailPath.toFile)
-    val bodies: Seq[Body] = parseMail(source.mkString)
-
-    source.close
-
-    bodies
+    mail <- consumeMail(1)
       .headOption
       .map { case Body(fingerprint, token, identity) => EMail("", fingerprint, token) }
 
-  }
+  } yield mail
 
   /**
    * This seems to be completely undocumented?
    * I did find a possible endpoint in the hagrid source: manage/unpublish.
    */
   override def revoke(token: Token, emails: Set[PgpIdentity]): Unit =
-    for (identity <- emails)
+    for (identity <- emails) {
       basicRequest
-        .post(hag("manage/unpublish"))
+        .post(hag("/manage/unpublish"))
         .body(
           Map("token" -> token.uuid.toString, "address" -> identity.email) // WIP
         )
         .send()
+    }
 
 }

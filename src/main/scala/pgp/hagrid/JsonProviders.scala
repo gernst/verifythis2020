@@ -3,9 +3,11 @@ package pgp.hagrid
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import pgp._
-import sttp.client.BodySerializer
 
 object JsonProviders {
+
+  implicit val hagridEnvelopeDecoder: Decoder[HagridEnvelope] = deriveDecoder[HagridEnvelope]
+  implicit val hagridMailDecoder: Decoder[HagridMail] = deriveDecoder[HagridMail]
   implicit val keyDecoder: Decoder[Key] = deriveDecoder[Key]
   implicit val keyIdDecoder: Decoder[KeyId] = deriveDecoder[KeyId]
   implicit val fingerprintDecoder: Decoder[Fingerprint] =
@@ -25,7 +27,7 @@ object JsonProviders {
 
   implicit val uploadDecoder: Decoder[UploadResponse] =
     deriveDecoder[UploadResponse]
-  implicit val keyBodyEncoder: BodySerializer[Key] = ???
+  implicit val uploadBodyEncoder: Encoder[UploadBody] = deriveEncoder[UploadBody]
 
   implicit val verifyEncoder: Encoder[VerifyRequest] =
     deriveEncoder[VerifyRequest]

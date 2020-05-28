@@ -6,6 +6,7 @@ object Generators {
 
   val serverSecure = new ServerActor(new Server)
   val serverInsecure = new ServerActor(new ServerOld)
+  //val serverHagrid = new ServerActor(new HagridServer)
   val servers = List(serverSecure, serverInsecure)
 
   val serverActorGen: Gen[ServerActor] = Gen.oneOf(servers)

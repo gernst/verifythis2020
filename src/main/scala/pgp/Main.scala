@@ -1,15 +1,48 @@
 package pgp
 
+import io.circe.syntax._
+import pgp.hagrid.JsonProviders._
 import pgp.hagrid._
+
 
 object Main extends App {
 
-  val id = "lukasrieger07@gmail.com"
+
+  val id = "lukasrieger11@gmail.com"
 
   val identities = Identity(id)
 
-  val x = KeyGenerator.genPublicKey(Set(identities))
 
-  println(x)
+  println("Creating actual backend.")
+
+  val backend = new HagridServer
+
+  val k = Key.pgp(Set(identities))
+
+  val uploaded = backend.upload(k)
+
+  val getTheKey = backend.byFingerprint(k.fingerprint)
+
+  println("Trying to request verify...")
+
+  val verifyRequest = VerifyRequest(uploaded.uuid, List(identities.email)).asJson
+
+  println(verifyRequest)
+
+  val verifyResult = backend.requestVerify(uploaded, Set(identities))
+
+  println(uploaded)
+  println(getTheKey)
+  println(verifyResult)
+
+  println("verifying now.")
+
+  backend.verify(verifyResult.head.token)
+
+  val res = backend.byEmail(identities)
+
+  for {
+    key <- res
+  } println(key.keyId)
 
 }

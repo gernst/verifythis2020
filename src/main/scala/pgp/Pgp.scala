@@ -1,9 +1,9 @@
 package pgp
 
-import java.nio.ByteBuffer
 import java.util.UUID
 
 import pgp.hagrid.KeyGenerator
+import pgp.hagrid.KeyGenerator.convertBytesToHex
 
 case class Body(fingerprint: Fingerprint, token: Token, identity: Identity)
 
@@ -54,6 +54,9 @@ sealed trait Fingerprint {
  * validated identities currently managed by the server.
  */
 sealed trait Key {
+
+  def armored: String
+
   def keyId: KeyId
 
   def fingerprint: Fingerprint
@@ -91,7 +94,7 @@ object Key {
 
     PGPKey(
       keyId = KeyIdImpl(pgpKey.getKeyID.toString),
-      fingerprint = FingerprintImpl(ByteBuffer.wrap(pgpKey.getFingerprint).getLong.toString),
+      fingerprint = FingerprintImpl(convertBytesToHex(pgpKey.getFingerprint).toUpperCase),
       identities = ids,
       armored = armored
     )
@@ -163,10 +166,10 @@ object Identity {
  */
 // Uses type 4 UUIDs with 122 bits of strong randomness.
 // Proposed by: https://github.com/wadoon/keyserver-java/
-case class Token(uuid: UUID)
+case class Token(uuid: String)
 
 object Token {
   def unique: Token = {
-    Token(UUID.randomUUID)
+    Token(UUID.randomUUID.toString)
   }
 }
