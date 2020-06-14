@@ -11,8 +11,6 @@
 % \usepackage{minted}
 \usepackage[colorlinks=true,allcolors=blue]{hyperref}
 
-\input{definitions}
-
 \title{Information Flow Testing of a PGP Keyserver \\
        (Abstract for the VerifyThis challenge~2020)}
 \author{Gidon Ernst \and Lukas Rieger}
@@ -63,8 +61,7 @@ A client object, on the other hand, stores a set of keys alongside those tokens 
 \textbf{Communication:} HAGRID uses two channels to communicate with users:
 a web-based interface for the lookup, upload, request for validation of keys, and management of these;
 and regular email for authentication tokens that are needed for certain operations.
-Each channel is modeled as an unordered collections of messages of the respective type, containing sender/receiver information.
-These messages are distributed by glue code in an actor-based approach,
+Messages are distributed by glue code in an actor-based approach,
 where the association between a client and its mailbox is explicit.
 
 \textbf{Adversary:} We assume that all communication is secure.
@@ -88,17 +85,25 @@ There are some existing approaches, such as tagging runtime values~\cite{austin2
 and security type systems, such as Jif~\cite{myers2001jif} for Java,
 and hybrid monitors that employ logical reasoning~\cite{chudnov2014information}.
 
-However, we aim to test non-interference directly:
-Starting out with a pair of initial states that are indistinguishable by the adversary,
-the system is secure if any subsequent pair of states after some interaction steps is still indistinguishable.
-This semantic criterion is parametric in the model of the adversary, and gives fine-grained control over what is deemed secret or public information, based on the current state or in terms of the history of the execution.
-The flexibility is desirable, because the association between keys and confirmed email addresses is dynamic and changes over time with declassification of the association between identities and keys once a key is confirmed.
-Recent knowledge-based models of security show that indeed, declassification can be conflated with assumptions on attacker knowledge (i.e., the declassified bit of information),
-such that a test run can simply be aborted when such an action happens~\cite{chudnov2018assuming}.
+Our test approach is based on \emph{Histories} that record events of the interaction explicitly, but not the internal states of the stateful actors.
+These histories are created by custom ScalaCheck generators with respect to a small collection of known email addresses.
+Three types of events can occur: upload of a key, and confirmation resp. revocation of the association between an email address and a key (via its fingerprint that is supposed to be unique).
 
-The current state of the testing efforts is quite preliminary but we expect to make substatial progress soon.
-As a future step, we aim to cross-validate the model against the actual implementation,
-e.g., by replaying ``interesting'' traces from the model against the real server code.
+The top-level specification is expressed over histories, which precisely determines those associations that are intended to be visible to another user of HAGRID (i.e. the adversary).
+To test whether an actual execution is correct and secure we thus compare the intended status of each \emph{potential} association from the predetermined set of identities and keys to the actual observations that can be made by calling server operations.
+
+Ongoing effort integrates this model with the actual implementation of HAGRID for cross-validation: We have written a back-end that dispatches the test calls directly over the REST API and reads back confirmation emails issued by HAGRID from a mailbox in the file system. Preliminary results have not show any odd behavior.
+
+% Starting out with a pair of initial states that are indistinguishable by the adversary,
+% the system is secure if any subsequent pair of states after some interaction steps is still indistinguishable.
+% This semantic criterion is parametric in the model of the adversary, and gives fine-grained control over what is deemed secret or public information, based on the current state or in terms of the history of the execution.
+% The flexibility is desirable, because the association between keys and confirmed email addresses is dynamic and changes over time with declassification of the association between identities and keys once a key is confirmed.
+% Recent knowledge-based models of security show that indeed, declassification can be conflated with assumptions on attacker knowledge (i.e., the declassified bit of information),
+% such that a test run can simply be aborted when such an action happens~\cite{chudnov2018assuming}.
+% 
+% The current state of the testing efforts is quite preliminary but we expect to make substatial progress soon.
+% As a future step, we aim to cross-validate the model against the actual implementation,
+% e.g., by replaying ``interesting'' traces from the model against the real server code.
 
 \bibliographystyle{splncs04}
 \bibliography{references}
