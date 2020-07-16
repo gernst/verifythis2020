@@ -132,27 +132,7 @@ object Identity {
       "crowl@verizon.net",
       "ranasta@live.com",
       "rupak@mac.com",
-      "wonderkid@yahoo.com",
-      "eminence@hotmail.com",
-      "crusader@sbcglobal.net",
-      "tezbo@att.net",
-      "mailarc@yahoo.com",
-      "jaffe@aol.com",
-      "mschilli@live.com",
-      "whimsy@yahoo.com",
-      "boser@yahoo.ca",
-      "bulletin@optonline.net",
-      "jonas@yahoo.ca",
-      "gator@hotmail.com",
-      "isotopian@outlook.com",
-      "formis@aol.com",
-      "hutton@outlook.com",
-      "fviegas@outlook.com",
-      "dkasak@msn.com",
-      "sopwith@live.com",
-      "horrocks@me.com",
-      "tfinniga@comcast.net",
-      "gfxguy@sbcglobal.net"
+      "wonderkid@yahoo.com"
     )
 }
 

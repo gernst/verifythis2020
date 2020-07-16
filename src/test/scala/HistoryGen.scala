@@ -1,9 +1,22 @@
 import org.scalacheck.Gen
+import pgp.Event.{Upload, Verify}
 import pgp.{Event, Fingerprint, History, Key}
+
+import scala.collection.mutable
 
 class Context(val keys: Map[Fingerprint, Key])
 
 object HistoryGen {
+
+  def minimalHistory(implicit keyGen: Int => Gen[Key]): Gen[History] =
+    for {
+      context <- contextGen(1, 1)(keyGen)
+      key = context.keys.head._2
+      events: mutable.Buffer[Event] = mutable.Buffer(
+        Upload(context.keys.head._2),
+        Verify(key.identities, key.fingerprint)
+      )
+    } yield History(events)
 
 
   def randomHistory(length: Int)(implicit keyGen: Int => Gen[Key]): Gen[History] =
@@ -23,10 +36,7 @@ object HistoryGen {
   def contextGen(keySize: Int, idsPerKey: Int)(implicit keyGen: Int => Gen[Key]): Gen[Context] =
     for {
       keys <- Gen
-        .listOfN(keySize,
-          keyGen(
-            keySize)
-        )
+        .listOfN(keySize, keyGen(keySize))
       keyMap = (keys map (k => (k.fingerprint, k))).toMap
     } yield new Context(keyMap)
 

@@ -39,12 +39,31 @@ object HagridServer {
 
   private val mailWatcher = FileSystems.getDefault.newWatchService
 
+
   val baseURL = "http://0.0.0.0:8080"
   val mailPath: Path = Paths.get("/home/lukas/fakemail/mails/")
   val hagridPath: Path = Paths.get("/home/lukas/hagrid/hagrid/state")
 
   val REVOKE_PATTERN: Regex = "(?s).*To: <(\\S+)>.*OpenPGP key: (\\S+).*http://localhost:8080/manage/(\\S+).*<!doctype html>.*".r
   val VERIFY_PATTERN: Regex = "(?s).*To: <(\\S+)>.*OpenPGP key: (\\S+).*http://localhost:8080/verify/(\\S+).*<!doctype html>.*".r
+
+
+  def remove(root: Path): Unit = {
+    if (root.toFile.exists) {
+      Files.walkFileTree(root, new SimpleFileVisitor[Path] {
+        override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
+          Files.delete(file)
+          FileVisitResult.CONTINUE
+        }
+
+        override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
+          Files.delete(dir)
+          FileVisitResult.CONTINUE
+        }
+      })
+    }
+  }
+
 
   def parseMail(mail: String): Seq[Body] =
     decode[HagridMail](mail)
@@ -85,21 +104,7 @@ class HagridServer extends Spec1 {
   )
 
 
-  def remove(root: Path): Unit = {
-    if (root.toFile.exists) {
-      Files.walkFileTree(root, new SimpleFileVisitor[Path] {
-        override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-          Files.delete(file)
-          FileVisitResult.CONTINUE
-        }
 
-        override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
-          Files.delete(dir)
-          FileVisitResult.CONTINUE
-        }
-      })
-    }
-  }
 
   /**
    * Read the file containing the mail body, then turn it into a Body and finally delete the file.
